@@ -21,6 +21,44 @@ emit_punctuation() {
         "(") echo "LEFT_PAREN" ;;
         ")") echo "RIGHT_PAREN" ;;
         ",") echo "COMMA" ;;
+        ":") echo "COLON" ;;
     esac
 }
 
+
+tokenize_file() {
+    local line char i
+    local current_word=""
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%%#*}"
+
+        for ((i = 0; i < ${#line}; i++)); do
+            char="${line:$i:1}"
+
+            if [[ "$char" =~ [[:space:]] ]]; then
+                if [[ -n "$current_word" ]]; then
+                    classify_word "$current_word"
+                    current_word=""
+                fi
+
+            elif [[ "$char" == "(" || "$char" == ")" || "$char" == "," || "$char" == ":" ]]; then
+                if [[ -n "$current_word" ]]; then
+                    classify_word "$current_word"
+                    current_word=""
+                fi
+
+                emit_punctuation "$char"
+
+            else
+                current_word+="$char"
+            fi
+        done
+
+        if [[ -n "$current_word" ]]; then
+            classify_word "$current_word"
+            current_word=""
+        fi
+
+    done < "$1"
+}

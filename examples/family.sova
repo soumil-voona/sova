@@ -1,1 +1,14 @@
+# Define facts
 fact parent("Alex", "Sam")
+fact parent("Sam", "Jamie")
+
+# Define a logical relationship
+rule grandparent(x, z):
+    parent(x, y)
+    AND parent(y, z)
+
+# Ask a question
+ask grandparent("Alex", "Jamie")
+ask parent("Alex", "Sam")
+ask parent(who, "Jamie")
+ask parent("Jamie", "Alex")

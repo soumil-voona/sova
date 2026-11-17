@@ -1,39 +1,29 @@
-
 #!/usr/bin/env bash
+#
+# Usage: ./sova [--tokens | --ast | --kb] FILE
+#   (default)  parse FILE, load the knowledge base, and answer its queries
+#   --tokens   print the lexer's token stream
+#   --ast      print the parsed AST
+#   --kb       print the loaded knowledge base
 
 source ./src/lexer.sh
 source ./src/check_reqs.sh
+source ./src/parser.sh
+source ./src/knowledge_base.sh
+
+mode="run"
+case "$1" in
+    --tokens) mode="tokens"; shift ;;
+    --ast)    mode="ast"; shift ;;
+    --kb)     mode="kb"; shift ;;
+esac
 
 check_reqs "$1"
+parse_program "$1" || exit 1
 
-current_word=""
-
-while IFS= read -r line || [[ -n "$line" ]]; do
-    for ((i = 0; i < ${#line}; i++)); do
-        char="${line:$i:1}"
-
-        if [[ "$char" =~ [[:space:]] ]]; then
-            if [[ -n "$current_word" ]]; then
-                classify_word "$current_word"
-                current_word=""
-            fi
-
-        elif [[ "$char" == "(" || "$char" == ")" || "$char" == "," ]]; then
-            if [[ -n "$current_word" ]]; then
-                classify_word "$current_word"
-                current_word=""
-            fi
-
-            emit_punctuation "$char"
-
-        else
-            current_word+="$char"
-        fi
-    done
-
-    if [[ -n "$current_word" ]]; then
-        classify_word "$current_word"
-        current_word=""
-    fi
-
-done < "$file_path"
+case "$mode" in
+    tokens) tokenize_file "$file_path" ;;
+    ast)    print_ast ;;
+    kb)     kb_load; kb_print ;;
+    run)    kb_load; kb_run_queries ;;
+esac
