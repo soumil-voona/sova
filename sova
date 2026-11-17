@@ -1,0 +1,39 @@
+
+#!/usr/bin/env bash
+
+source ./src/lexer.sh
+source ./src/check_reqs.sh
+
+check_reqs "$1"
+
+current_word=""
+
+while IFS= read -r line || [[ -n "$line" ]]; do
+    for ((i = 0; i < ${#line}; i++)); do
+        char="${line:$i:1}"
+
+        if [[ "$char" =~ [[:space:]] ]]; then
+            if [[ -n "$current_word" ]]; then
+                classify_word "$current_word"
+                current_word=""
+            fi
+
+        elif [[ "$char" == "(" || "$char" == ")" || "$char" == "," ]]; then
+            if [[ -n "$current_word" ]]; then
+                classify_word "$current_word"
+                current_word=""
+            fi
+
+            emit_punctuation "$char"
+
+        else
+            current_word+="$char"
+        fi
+    done
+
+    if [[ -n "$current_word" ]]; then
+        classify_word "$current_word"
+        current_word=""
+    fi
+
+done < "$file_path"
