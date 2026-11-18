@@ -1,3 +1,4 @@
+#check_reqs.sh
 check_reqs() {
     file_path=$1
     if [[ -z "$file_path" ]]; then

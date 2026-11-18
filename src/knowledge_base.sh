@@ -1,4 +1,4 @@
-# Sova knowledge base.
+#knowledge_base.sh
 #
 # kb_load builds the knowledge base from the AST produced by parse_program:
 #   KB_FACTS    "<name> FS <args>"                 (duplicates are skipped)

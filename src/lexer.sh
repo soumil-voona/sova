@@ -1,3 +1,5 @@
+#lexer.sh
+
 classify_word() {
     word="$1"
     KEYWORDS=("fact" "rule" "ask" "AND" "OR")
