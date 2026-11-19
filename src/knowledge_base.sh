@@ -6,20 +6,28 @@
 #   KB_RULES    "<name> FS <params>"
 #   KB_GOALS    "<rule index> FS <op> FS <name> FS <args>"
 #   KB_QUERIES  "<name> FS <args>"
-# kb_run_queries answers each query against the stored facts.
-# Rules are stored but not evaluated yet (that is the inference engine's job).
+#   KB_ALTS     "<rule index> FS <goal> GS <goal> ..."
+#               One entry per alternative body of a rule. OR binds loosest, so
+#               "a AND b OR c" gives two alternatives: [a, b] and [c]. Each goal
+#               is "<name> FS <args>" and goals are joined by $GOAL_SEP.
+# Queries are answered by the inference engine (src/inference.sh).
+
+GOAL_SEP=$'\x1d'
 
 KB_FACTS=()
 KB_RULES=()
 KB_GOALS=()
 KB_QUERIES=()
+KB_ALTS=()
 
 kb_load() {
-    local node kind rest existing duplicate
+    local node kind rest existing duplicate op goal
+    local current_rule="" current_alt=""
     KB_FACTS=()
     KB_RULES=()
     KB_GOALS=()
     KB_QUERIES=()
+    KB_ALTS=()
 
     for node in "${AST[@]}"; do
         kind="${node%%"$AST_FS"*}"
@@ -33,97 +41,33 @@ kb_load() {
                 [[ "$duplicate" -eq 0 ]] && KB_FACTS+=("$rest")
                 ;;
             RULE)
+                [[ -n "$current_alt" ]] && KB_ALTS+=("${current_rule}${AST_FS}${current_alt}")
+                current_alt=""
                 KB_RULES+=("$rest")
+                current_rule=$((${#KB_RULES[@]} - 1))
                 ;;
             GOAL)
-                KB_GOALS+=("$((${#KB_RULES[@]} - 1))${AST_FS}${rest}")
+                KB_GOALS+=("${current_rule}${AST_FS}${rest}")
+                op="${rest%%"$AST_FS"*}"
+                goal="${rest#*"$AST_FS"}"
+                if [[ "$op" == "OR" ]]; then
+                    KB_ALTS+=("${current_rule}${AST_FS}${current_alt}")
+                    current_alt=""
+                fi
+                current_alt="${current_alt:+${current_alt}${GOAL_SEP}}${goal}"
                 ;;
             ASK)
                 KB_QUERIES+=("$rest")
                 ;;
         esac
     done
+    [[ -n "$current_alt" ]] && KB_ALTS+=("${current_rule}${AST_FS}${current_alt}")
+    return 0
 }
 
-kb_has_rule() {
-    local rule
-    for rule in "${KB_RULES[@]}"; do
-        [[ "${rule%%"$AST_FS"*}" == "$1" ]] && return 0
-    done
-    return 1
-}
-
+# A quoted string is a constant; any bare name is a variable.
 is_variable() {
     [[ "$1" != \"* ]]
-}
-
-# Matches query args against one fact's args, extending MATCH_BINDINGS.
-# Variables are bound on first sight and must agree on later sightings.
-match_fact() {
-    local -a query_args fact_args
-    IFS="$AST_AS" read -ra query_args <<< "$1"
-    IFS="$AST_AS" read -ra fact_args <<< "$2"
-    [[ "${#query_args[@]}" -eq "${#fact_args[@]}" ]] || return 1
-
-    local -a names=() values=()
-    local i j q f bound
-    for ((i = 0; i < ${#query_args[@]}; i++)); do
-        q="${query_args[$i]}"
-        f="${fact_args[$i]}"
-        if is_variable "$q"; then
-            bound=0
-            for ((j = 0; j < ${#names[@]}; j++)); do
-                if [[ "${names[$j]}" == "$q" ]]; then
-                    [[ "${values[$j]}" == "$f" ]] || return 1
-                    bound=1
-                fi
-            done
-            if [[ "$bound" -eq 0 ]]; then
-                names+=("$q")
-                values+=("$f")
-            fi
-        elif [[ "$q" != "$f" ]]; then
-            return 1
-        fi
-    done
-
-    MATCH_BINDINGS=""
-    for ((j = 0; j < ${#names[@]}; j++)); do
-        [[ -n "$MATCH_BINDINGS" ]] && MATCH_BINDINGS+=", "
-        MATCH_BINDINGS+="${names[$j]} = ${values[$j]}"
-    done
-}
-
-kb_ask() {
-    local name="$1"
-    local args="$2"
-    local fact found=0
-
-    echo "ask $name(${args//$AST_AS/, })"
-    for fact in "${KB_FACTS[@]}"; do
-        [[ "${fact%%"$AST_FS"*}" == "$name" ]] || continue
-        if match_fact "$args" "${fact#*"$AST_FS"}"; then
-            found=1
-            [[ -n "$MATCH_BINDINGS" ]] && echo "  $MATCH_BINDINGS"
-        fi
-    done
-
-    if [[ "$found" -eq 1 ]]; then
-        echo "  TRUE"
-        kb_has_rule "$name" && echo "  (results from rules are not included yet)"
-    elif kb_has_rule "$name"; then
-        echo "  UNKNOWN: '$name' is defined by a rule; rule evaluation is not implemented yet"
-    else
-        echo "  FALSE"
-    fi
-}
-
-kb_run_queries() {
-    local query
-    for query in "${KB_QUERIES[@]}"; do
-        kb_ask "${query%%"$AST_FS"*}" "${query#*"$AST_FS"}"
-        echo
-    done
 }
 
 kb_print() {

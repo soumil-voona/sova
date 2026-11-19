@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 
 #
-# Usage: ./sova [--tokens | --ast | --kb] FILE
+# Usage: ./sova [--tokens | --ast | --kb | --brief] FILE
+#
+#   (no flag)  answer each ask, with a proof for every answer and an
+#              explanation for every FALSE
+#   --brief    answer each ask without proofs or explanations
+#   --tokens   show lexer tokens
+#   --ast      show the parsed AST
+#   --kb       show the knowledge base
 
 SOVA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -13,6 +20,8 @@ source "$SOVA_DIR/src/check_reqs.sh"
 source "$SOVA_DIR/src/parser.sh"
 # shellcheck source=src/knowledge_base.sh
 source "$SOVA_DIR/src/knowledge_base.sh"
+# shellcheck source=src/inference.sh
+source "$SOVA_DIR/src/inference.sh"
 
 mode="run"
 
@@ -20,6 +29,7 @@ case "$1" in
     --tokens) mode="tokens"; shift ;;
     --ast)    mode="ast"; shift ;;
     --kb)     mode="kb"; shift ;;
+    --brief)  SOVA_BRIEF=1; shift ;;
 esac
 
 file_path="$1"

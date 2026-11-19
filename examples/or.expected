@@ -1,0 +1,25 @@
+ask caregiver(who, "Jamie")
+  who = "Sam"
+    caregiver("Sam", "Jamie")  [rule caregiver, OR branch 1]
+      parent("Sam", "Jamie")  [fact]
+  who = "Riley"
+    caregiver("Riley", "Jamie")  [rule caregiver, OR branch 2]
+      guardian("Riley", "Jamie")  [fact]
+  TRUE
+
+ask pet_of_family("Mochi", who)
+  who = "Sam"
+    pet_of_family("Mochi", "Sam")  [rule pet_of_family, OR branch 1]
+      owns("Jamie", "Mochi")  [fact]
+      caregiver("Sam", "Jamie")  [rule caregiver, OR branch 1]
+        parent("Sam", "Jamie")  [fact]
+  who = "Riley"
+    pet_of_family("Mochi", "Riley")  [rule pet_of_family, OR branch 1]
+      owns("Jamie", "Mochi")  [fact]
+      caregiver("Riley", "Jamie")  [rule caregiver, OR branch 2]
+        guardian("Riley", "Jamie")  [fact]
+  who = "Jamie"
+    pet_of_family("Mochi", "Jamie")  [rule pet_of_family, OR branch 2]
+      owns("Jamie", "Mochi")  [fact]
+  TRUE
+

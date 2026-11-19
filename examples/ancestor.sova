@@ -1,0 +1,21 @@
+# Recursive rules: an ancestor is a parent, or a parent of an ancestor.
+
+fact parent("Ada", "Ben")
+fact parent("Ben", "Cleo")
+fact parent("Cleo", "Dev")
+fact parent("Dev", "Eli")
+fact parent("Ada", "Fay")
+
+# Base case
+rule ancestor(x, y):
+    parent(x, y)
+
+# Recursive case
+rule ancestor(x, y):
+    parent(x, z)
+    AND ancestor(z, y)
+
+ask ancestor("Ada", "Eli")
+ask ancestor("Eli", "Ada")
+ask ancestor("Ada", who)
+ask ancestor(who, "Dev")

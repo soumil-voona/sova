@@ -1,0 +1,66 @@
+ask ancestor("Ada", "Eli")
+  Proof:
+    ancestor("Ada", "Eli")  [rule ancestor, clause 2]
+      parent("Ada", "Ben")  [fact]
+      ancestor("Ben", "Eli")  [rule ancestor, clause 2]
+        parent("Ben", "Cleo")  [fact]
+        ancestor("Cleo", "Eli")  [rule ancestor, clause 2]
+          parent("Cleo", "Dev")  [fact]
+          ancestor("Dev", "Eli")  [rule ancestor, clause 1]
+            parent("Dev", "Eli")  [fact]
+  TRUE
+
+ask ancestor("Eli", "Ada")
+  FALSE
+  Dead ends (no fact or rule matches):
+    parent("Eli", "Ada")
+    parent("Eli", _)
+
+ask ancestor("Ada", who)
+  who = "Ben"
+    ancestor("Ada", "Ben")  [rule ancestor, clause 1]
+      parent("Ada", "Ben")  [fact]
+  who = "Fay"
+    ancestor("Ada", "Fay")  [rule ancestor, clause 1]
+      parent("Ada", "Fay")  [fact]
+  who = "Cleo"
+    ancestor("Ada", "Cleo")  [rule ancestor, clause 2]
+      parent("Ada", "Ben")  [fact]
+      ancestor("Ben", "Cleo")  [rule ancestor, clause 1]
+        parent("Ben", "Cleo")  [fact]
+  who = "Dev"
+    ancestor("Ada", "Dev")  [rule ancestor, clause 2]
+      parent("Ada", "Ben")  [fact]
+      ancestor("Ben", "Dev")  [rule ancestor, clause 2]
+        parent("Ben", "Cleo")  [fact]
+        ancestor("Cleo", "Dev")  [rule ancestor, clause 1]
+          parent("Cleo", "Dev")  [fact]
+  who = "Eli"
+    ancestor("Ada", "Eli")  [rule ancestor, clause 2]
+      parent("Ada", "Ben")  [fact]
+      ancestor("Ben", "Eli")  [rule ancestor, clause 2]
+        parent("Ben", "Cleo")  [fact]
+        ancestor("Cleo", "Eli")  [rule ancestor, clause 2]
+          parent("Cleo", "Dev")  [fact]
+          ancestor("Dev", "Eli")  [rule ancestor, clause 1]
+            parent("Dev", "Eli")  [fact]
+  TRUE
+
+ask ancestor(who, "Dev")
+  who = "Cleo"
+    ancestor("Cleo", "Dev")  [rule ancestor, clause 1]
+      parent("Cleo", "Dev")  [fact]
+  who = "Ada"
+    ancestor("Ada", "Dev")  [rule ancestor, clause 2]
+      parent("Ada", "Ben")  [fact]
+      ancestor("Ben", "Dev")  [rule ancestor, clause 2]
+        parent("Ben", "Cleo")  [fact]
+        ancestor("Cleo", "Dev")  [rule ancestor, clause 1]
+          parent("Cleo", "Dev")  [fact]
+  who = "Ben"
+    ancestor("Ben", "Dev")  [rule ancestor, clause 2]
+      parent("Ben", "Cleo")  [fact]
+      ancestor("Cleo", "Dev")  [rule ancestor, clause 1]
+        parent("Cleo", "Dev")  [fact]
+  TRUE
+

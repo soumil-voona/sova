@@ -60,21 +60,21 @@ This is the most important step. Some design decisions are worth settling first:
 - **Search strategy.** Depth-first and left-to-right, like Prolog: for each goal, try matching facts, then matching rule clauses, and recurse on the remaining goals. Bash functions can recurse, so the call stack does the backtracking for you. Collect solutions in a global array.
 - **AND/OR precedence.** The parser accepts mixed `AND`/`OR` but defines no precedence. Recommendation: **`OR` binds loosest**, so the body becomes alternatives, each one an `AND` chain. Document this in the README.
 - **Multiple clauses.** Allow several `rule ancestor(x, z):` definitions; each is a separate alternative. `KB_RULES` already supports this. Just make sure goal grouping uses the rule's index, not its name. (It already does.)
-- **Safety.** Add a depth limit (e.g. 200) and report `ERROR: depth limit reached` instead of letting Bash overflow its stack on left-recursive rules.
+- **Safety.** Add a depth limit (done: 100, since cost grows with the square of the depth in Bash) and report `ERROR: depth limit reached` instead of letting Bash overflow its stack on left-recursive rules.
 - **Answers.** Deduplicate solutions and only show bindings for the query's own variables.
 
 Add these examples as you go:
-- [ ] `examples/family.sova`: `grandparent` should return TRUE (this is the README's promise)
-- [ ] `examples/ancestor.sova`: a recursive rule with two clauses
-- [ ] `examples/or.sova`: a disjunction
+- [x] `examples/family.sova`: `grandparent` should return TRUE (this is the README's promise)
+- [x] `examples/ancestor.sova`: a recursive rule with two clauses
+- [x] `examples/or.sova`: a disjunction
 
 ### 4. Proof trees and `explain`
 
 This is the feature that sets Sova apart, so build it right after inference works.
 
-- [ ] Have the solver record which fact or rule satisfied each goal, as a tree that travels alongside the bindings.
-- [ ] Print it in the README's `Proof: … Therefore: …` format, indented by depth for nested rules.
-- [ ] **Explain failures:** for a FALSE query, report the first goal that had no match ("no fact `parent("Jamie", y)` exists"). It's simple to implement and very useful for learners.
+- [x] Have the solver record which fact or rule satisfied each goal, as a tree that travels alongside the bindings.
+- [x] Print it in the README's `Proof: … Therefore: …` format, indented by depth for nested rules.
+- [x] **Explain failures:** for a FALSE query, report the first goal that had no match ("no fact `parent("Jamie", y)` exists"). It's simple to implement and very useful for learners.
 
 ### 5. Language features that will be missed quickly
 

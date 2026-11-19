@@ -1,13 +1,22 @@
 ask grandparent("Alex", "Jamie")
-  UNKNOWN: 'grandparent' is defined by a rule; rule evaluation is not implemented yet
+  Proof:
+    grandparent("Alex", "Jamie")  [rule grandparent]
+      parent("Alex", "Sam")  [fact]
+      parent("Sam", "Jamie")  [fact]
+  TRUE
 
 ask parent("Alex", "Sam")
+  Proof:
+    parent("Alex", "Sam")  [fact]
   TRUE
 
 ask parent(who, "Jamie")
   who = "Sam"
+    parent("Sam", "Jamie")  [fact]
   TRUE
 
 ask parent("Jamie", "Alex")
   FALSE
+  Dead ends (no fact or rule matches):
+    parent("Jamie", "Alex")
 

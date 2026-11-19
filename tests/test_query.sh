@@ -10,32 +10,32 @@ FAMILY='fact parent("Alex", "Sam")
 fact parent("Sam", "Jamie")
 fact parent("Alex", "Riley")'
 
-check_output "Ground query that is true" "" \
+check_output "Ground query that is true" "--brief" \
 "$FAMILY
 ask parent(\"Alex\", \"Sam\")" \
 'ask parent("Alex", "Sam")
   TRUE'
 
-check_output "Ground query that is false" "" \
+check_output "Ground query that is false" "--brief" \
 "$FAMILY
 ask parent(\"Jamie\", \"Alex\")" \
 'ask parent("Jamie", "Alex")
   FALSE'
 
-check_output "Unknown predicate is false" "" \
+check_output "Unknown predicate is false" "--brief" \
 "$FAMILY
 ask likes(\"Alex\", \"Sam\")" \
 'ask likes("Alex", "Sam")
   FALSE'
 
-check_output "Single variable binding" "" \
+check_output "Single variable binding" "--brief" \
 "$FAMILY
 ask parent(who, \"Jamie\")" \
 'ask parent(who, "Jamie")
   who = "Sam"
   TRUE'
 
-check_output "Multiple answers" "" \
+check_output "Multiple answers" "--brief" \
 "$FAMILY
 ask parent(\"Alex\", child)" \
 'ask parent("Alex", child)
@@ -43,14 +43,14 @@ ask parent(\"Alex\", child)" \
   child = "Riley"
   TRUE'
 
-check_output "Two variables" "" \
+check_output "Two variables" "--brief" \
 'fact parent("Alex", "Sam")
 ask parent(a, b)' \
 'ask parent(a, b)
   a = "Alex", b = "Sam"
   TRUE'
 
-check_output "Repeated variable must match the same value" "" \
+check_output "Repeated variable must match the same value" "--brief" \
 'fact same("a", "a")
 fact same("a", "b")
 ask same(x, x)' \
@@ -58,21 +58,13 @@ ask same(x, x)' \
   x = "a"
   TRUE'
 
-check_output "Arity mismatch is false" "" \
+check_output "Arity mismatch is false" "--brief" \
 "$FAMILY
 ask parent(\"Alex\")" \
 'ask parent("Alex")
   FALSE'
 
-check_output "Rule-defined predicate is unknown for now" "" \
-'rule grandparent(x, z):
-    parent(x, y)
-    AND parent(y, z)
-ask grandparent("Alex", "Jamie")' \
-'ask grandparent("Alex", "Jamie")
-  UNKNOWN: '"'"'grandparent'"'"' is defined by a rule; rule evaluation is not implemented yet'
-
-check_output "Syntax errors stop the run" "" \
+check_output "Syntax errors stop the run" "--brief" \
 'fact parent("Alex"' \
 'Syntax error on line 1: expected fact predicate and arguments'
 

@@ -60,17 +60,24 @@ rule grandparent(x, z):
 ask grandparent("Alex", "Jamie")
 ```
 
-Expected result:
+Result:
 
 ```text
-TRUE
+ask grandparent("Alex", "Jamie")
+  Proof:
+    grandparent("Alex", "Jamie")  [rule grandparent]
+      parent("Alex", "Sam")  [fact]
+      parent("Sam", "Jamie")  [fact]
+  TRUE
+```
 
-Proof:
-  parent("Alex", "Sam")
-  parent("Sam", "Jamie")
+Each answer comes with a proof tree: every goal is indented under the rule that needed it, and labeled with the fact or rule that proved it. When a query is FALSE, Sova lists the dead ends, meaning the goals nothing could match:
 
-  Therefore:
-  grandparent("Alex", "Jamie")
+```text
+ask grandparent("Sam", "Alex")
+  FALSE
+  Dead ends (no fact or rule matches):
+    parent("Jamie", "Alex")
 ```
 
 Sova aims to go beyond returning a result.
@@ -137,21 +144,31 @@ The project intentionally uses Bash to explore how much of a programming languag
 - [x] Parser and syntax validation
 - [x] Abstract syntax tree
 - [x] Fact storage and knowledge base
-- [ ] Variables and unification (fact queries with variables work; full unification pending)
-- [ ] Rule evaluation
-- [ ] Inference engine
-- [ ] Query evaluation and backtracking
-- [ ] Proof trees and explanations
+- [x] Variables and unification
+- [x] Rule evaluation
+- [x] Inference engine
+- [x] Query evaluation and backtracking
+- [x] Proof trees and explanations
 - [ ] Pseudocode generation
 - [ ] Python translation
 - [ ] JavaScript translation
 - [ ] Interactive learning environment
 - [ ] Programming paradigm comparisons
 
+## How Queries Are Answered
+
+- A quoted string (`"Alex"`) is a constant; a bare name (`who`, `x`) is a variable.
+- Sova searches depth-first and backtracks, like Prolog. For each goal it tries facts first, then rules in source order.
+- A predicate can have several rules with the same name; each is an alternative (e.g. a base case and a recursive case).
+- `OR` binds loosest: `a AND b OR c` means `(a AND b) OR c`.
+- Each answer is shown once. Variables used only inside a rule are not shown.
+- The search stops at a depth of 100 steps, so a rule that calls itself forever gives `UNKNOWN` instead of hanging. Set `SOVA_MAX_DEPTH` to change the limit.
+
 ## Running and Testing
 
 ```bash
-./sova examples/family.sova            # answer the queries in a program
+./sova examples/ancestor.sova          # answer the queries, with proofs
+./sova --brief examples/ancestor.sova  # answers only
 ./sova --tokens examples/family.sova   # show lexer tokens
 ./sova --ast examples/family.sova      # show the parsed AST
 ./sova --kb examples/family.sova       # show the knowledge base

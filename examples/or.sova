@@ -1,0 +1,18 @@
+# OR binds loosest: "a AND b OR c" means (a AND b) OR c.
+
+fact parent("Sam", "Jamie")
+fact guardian("Riley", "Jamie")
+fact cat("Mochi")
+fact owns("Jamie", "Mochi")
+
+rule caregiver(x, y):
+    parent(x, y)
+    OR guardian(x, y)
+
+rule pet_of_family(pet, adult):
+    owns(kid, pet)
+    AND caregiver(adult, kid)
+    OR owns(adult, pet)
+
+ask caregiver(who, "Jamie")
+ask pet_of_family("Mochi", who)
