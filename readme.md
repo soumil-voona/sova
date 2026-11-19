@@ -133,11 +133,11 @@ The project intentionally uses Bash to explore how much of a programming languag
 
 ## Development Roadmap
 
-- [ ] Lexer and tokenizer
-- [ ] Parser and syntax validation
-- [ ] Abstract syntax tree
-- [ ] Fact storage and knowledge base
-- [ ] Variables and unification
+- [x] Lexer and tokenizer
+- [x] Parser and syntax validation
+- [x] Abstract syntax tree
+- [x] Fact storage and knowledge base
+- [ ] Variables and unification (fact queries with variables work; full unification pending)
 - [ ] Rule evaluation
 - [ ] Inference engine
 - [ ] Query evaluation and backtracking
@@ -148,12 +148,23 @@ The project intentionally uses Bash to explore how much of a programming languag
 - [ ] Interactive learning environment
 - [ ] Programming paradigm comparisons
 
+## Running and Testing
+
+```bash
+./sova examples/family.sova            # answer the queries in a program
+./sova --tokens examples/family.sova   # show lexer tokens
+./sova --ast examples/family.sova      # show the parsed AST
+./sova --kb examples/family.sova       # show the knowledge base
+tests/run_all.sh                       # run every test suite
+shellcheck -x sova src/*.sh tests/*.sh # lint
+```
+
 ## Project Structure
 
 ```text
 sova/
 ├── sova
-├── README.md
+├── readme.md
 ├── src/
 ├── examples/
 ├── tests/

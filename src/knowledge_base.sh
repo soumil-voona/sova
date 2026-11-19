@@ -1,4 +1,5 @@
 #knowledge_base.sh
+# shellcheck shell=bash
 #
 # kb_load builds the knowledge base from the AST produced by parse_program:
 #   KB_FACTS    "<name> FS <args>"                 (duplicates are skipped)

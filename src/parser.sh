@@ -1,4 +1,5 @@
 #parser.sh
+# shellcheck shell=bash
 #
 # parse_program FILE validates FILE and fills the global AST array with one
 # node per entry. Fields within a node are separated by $AST_FS, and argument

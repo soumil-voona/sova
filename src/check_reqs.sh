@@ -1,4 +1,5 @@
 #check_reqs.sh
+# shellcheck shell=bash
 check_reqs() {
     file_path=$1
     if [[ -z "$file_path" ]]; then

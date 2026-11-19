@@ -1,4 +1,5 @@
 #lexer.sh
+# shellcheck shell=bash
 
 classify_word() {
     word="$1"
@@ -28,17 +29,39 @@ emit_punctuation() {
 }
 
 
+# Prints one token per line. Quoted strings become a single STRING token, so
+# spaces, commas, and '#' inside them are kept. A '#' outside a string starts a
+# comment. Fails on an unterminated string.
 tokenize_file() {
-    local line char i
+    local line char i line_number=0
     local current_word=""
+    local in_string=0
 
     while IFS= read -r line || [[ -n "$line" ]]; do
-        line="${line%%#*}"
+        ((line_number++))
 
         for ((i = 0; i < ${#line}; i++)); do
             char="${line:$i:1}"
 
-            if [[ "$char" =~ [[:space:]] ]]; then
+            if [[ "$in_string" -eq 1 ]]; then
+                current_word+="$char"
+                if [[ "$char" == '"' ]]; then
+                    echo "STRING: $current_word"
+                    current_word=""
+                    in_string=0
+                fi
+
+            elif [[ "$char" == '"' ]]; then
+                if [[ -n "$current_word" ]]; then
+                    classify_word "$current_word"
+                fi
+                current_word="$char"
+                in_string=1
+
+            elif [[ "$char" == "#" ]]; then
+                break
+
+            elif [[ "$char" =~ [[:space:]] ]]; then
                 if [[ -n "$current_word" ]]; then
                     classify_word "$current_word"
                     current_word=""
@@ -56,6 +79,11 @@ tokenize_file() {
                 current_word+="$char"
             fi
         done
+
+        if [[ "$in_string" -eq 1 ]]; then
+            echo "Lexical error on line $line_number: unterminated string" >&2
+            return 1
+        fi
 
         if [[ -n "$current_word" ]]; then
             classify_word "$current_word"

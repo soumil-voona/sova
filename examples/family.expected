@@ -1,0 +1,13 @@
+ask grandparent("Alex", "Jamie")
+  UNKNOWN: 'grandparent' is defined by a rule; rule evaluation is not implemented yet
+
+ask parent("Alex", "Sam")
+  TRUE
+
+ask parent(who, "Jamie")
+  who = "Sam"
+  TRUE
+
+ask parent("Jamie", "Alex")
+  FALSE
+

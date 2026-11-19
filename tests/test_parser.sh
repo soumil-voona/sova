@@ -1,7 +1,9 @@
-
 #!/usr/bin/env bash
 
-source ./src/parser.sh
+
+TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=src/parser.sh
+source "$TEST_DIR/../src/parser.sh"
 
 PASS=0
 FAIL=0

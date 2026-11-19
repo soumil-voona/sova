@@ -1,12 +1,18 @@
-
 #!/usr/bin/env bash
+
 #
 # Usage: ./sova [--tokens | --ast | --kb] FILE
 
-source ./src/lexer.sh
-source ./src/check_reqs.sh
-source ./src/parser.sh
-source ./src/knowledge_base.sh
+SOVA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=src/lexer.sh
+source "$SOVA_DIR/src/lexer.sh"
+# shellcheck source=src/check_reqs.sh
+source "$SOVA_DIR/src/check_reqs.sh"
+# shellcheck source=src/parser.sh
+source "$SOVA_DIR/src/parser.sh"
+# shellcheck source=src/knowledge_base.sh
+source "$SOVA_DIR/src/knowledge_base.sh"
 
 mode="run"
 
