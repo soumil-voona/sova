@@ -1,0 +1,31 @@
+# collect and count cases (used by test_gather.sh and the translation tests).
+fact parent("Ada", "Ben")
+fact parent("Ada", "Fay")
+fact parent("Ben", "Cy")
+fact age("Ben", 30)
+fact age("Fay", 25)
+fact age("Cy", 5)
+
+rule children(p, kids):
+    collect(c, parent(p, c), kids)
+rule how_many(p, n):
+    count(parent(p, c), n)
+rule big_family(p):
+    parent(p, someone)
+    AND count(parent(p, c), n)
+    AND n >= 2
+rule kid_age(p, c, a):
+    parent(p, c)
+    AND age(c, a)
+rule kid_ages(p, ages):
+    collect([c, a], kid_age(p, c, a), ages)
+
+fact sum([], 0)
+rule sum([x | xs], t):
+    sum(xs, r)
+    AND t = x + r
+rule total_age(p, t):
+    collect(a, kid_age(p, c, a), ages)
+    AND sum(ages, t)
+rule everyone_counted(n):
+    count(age(who, years), n)

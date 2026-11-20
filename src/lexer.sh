@@ -27,6 +27,9 @@ emit_punctuation() {
         ")") echo "RIGHT_PAREN" ;;
         ",") echo "COMMA" ;;
         ":") echo "COLON" ;;
+        "[") echo "LEFT_BRACKET" ;;
+        "]") echo "RIGHT_BRACKET" ;;
+        "|") echo "BAR" ;;
     esac
 }
 
@@ -69,6 +72,16 @@ tokenize_file() {
                     current_word=""
                 fi
 
+            elif [[ "$char" == "+" || "$char" == "*" || "$char" == "/" || "$char" == "%" ||
+                    ( "$char" == "-" && ( -n "$current_word" || ! "${line:$((i + 1)):1}" =~ [0-9] ) ) ]]; then
+                # Arithmetic operators. A "-" right before a digit starts a
+                # negative number instead, unless it follows a word (n-1).
+                if [[ -n "$current_word" ]]; then
+                    classify_word "$current_word"
+                    current_word=""
+                fi
+                echo "OPERATOR: $char"
+
             elif [[ "$char" == "<" || "$char" == ">" || "$char" == "=" || "$char" == "!" ]]; then
                 if [[ -n "$current_word" ]]; then
                     classify_word "$current_word"
@@ -81,7 +94,8 @@ tokenize_file() {
                     echo "OPERATOR: $char"
                 fi
 
-            elif [[ "$char" == "(" || "$char" == ")" || "$char" == "," || "$char" == ":" ]]; then
+            elif [[ "$char" == "(" || "$char" == ")" || "$char" == "," || "$char" == ":" ||
+                    "$char" == "[" || "$char" == "]" || "$char" == "|" ]]; then
                 if [[ -n "$current_word" ]]; then
                     classify_word "$current_word"
                     current_word=""

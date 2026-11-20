@@ -1,0 +1,33 @@
+# Edge cases for translation: repeated variables, NOT of a rule,
+# swapped head arguments, facts and rules for one predicate, numbers.
+fact edge("a", "a")
+fact edge("a", "b")
+fact edge("b", "b")
+rule loop(n):
+    edge(n, n)
+
+fact parent("a", "b")
+fact parent("b", "c")
+rule has_parent(x):
+    parent(p, x)
+rule root(x):
+    parent(x, c)
+    AND NOT has_parent(x)
+
+fact p("a", "b")
+rule r(x, y):
+    p(x, y)
+rule r(y, x):
+    p(x, y)
+
+fact likes("Sam", "tea")
+rule likes(x, "cake"):
+    parent(x, c)
+
+fact temp("Oslo", -3)
+fact temp("Rome", 12)
+fact temp("Cairo", 30)
+rule mild(city):
+    temp(city, t)
+    AND t > -5
+    AND t <= 20

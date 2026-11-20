@@ -1,0 +1,25 @@
+rule greet(name, message):
+    concat("Hello, ", name, start)
+    AND concat(start, "!", message)
+rule palindrome(word):
+    chars(word, letters)
+    AND reverse(letters, letters)
+fact reverse_into([], acc, acc)
+rule reverse_into([x | xs], acc, out):
+    reverse_into(xs, [x | acc], out)
+rule reverse(xs, out):
+    reverse_into(xs, [], out)
+rule shout(word, loud):
+    chars(word, letters)
+    AND append(letters, ["!", "!"], more)
+    AND chars(loud, more)
+fact append([], ys, ys)
+rule append([x | xs], ys, [x | zs]):
+    append(xs, ys, zs)
+rule long_word(w):
+    text_length(w, n)
+    AND n > 5
+rule suffix_of(word, ending, stem):
+    concat(stem, ending, word)
+rule splits(word, a, b):
+    concat(a, b, word)

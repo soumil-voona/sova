@@ -147,9 +147,48 @@ ask likes(who, "cake")
 check_output "Infinite recursion hits the depth limit" "--brief" \
 'rule forever(x):
     forever(x)
+ask forever(w)' \
+'ask forever(w)
+  UNKNOWN: depth limit (100) reached; a rule may be calling itself forever'
+
+check_output "A known goal that needs itself is false" "" \
+'rule forever(x):
+    forever(x)
 ask forever("a")' \
 'ask forever("a")
-  UNKNOWN: depth limit (100) reached; a rule may be calling itself forever'
+  FALSE
+  Dead ends (these goals could not be proved):
+    forever("a")  (would need itself to be proved first)'
+
+check_output "Cycles in a graph finish" "--brief" \
+'fact edge("a", "b")
+fact edge("b", "c")
+fact edge("c", "a")
+fact edge("c", "d")
+rule reach(x, y):
+    edge(x, y)
+rule reach(x, y):
+    edge(x, z)
+    AND reach(z, y)
+ask reach("a", "d")
+ask reach("d", "a")' \
+'ask reach("a", "d")
+  TRUE
+
+ask reach("d", "a")
+  FALSE'
+
+check_output "Symmetric rules finish" "--brief" \
+'fact knows("a", "b")
+rule knows(x, y):
+    knows(y, x)
+ask knows("b", "a")
+ask knows("a", "c")' \
+'ask knows("b", "a")
+  TRUE
+
+ask knows("a", "c")
+  FALSE'
 
 check_output "Left recursion still finds answers" "--brief" \
 'fact parent("a", "b")

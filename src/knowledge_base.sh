@@ -62,31 +62,123 @@ kb_load() {
         esac
     done
     [[ -n "$current_alt" ]] && KB_ALTS+=("${current_rule}${AST_FS}${current_alt}")
+    kb_build_index
     return 0
 }
 
-# Quoted strings and numbers are constants; any bare name is a variable.
-is_variable() {
-    [[ "$1" != [\"0-9-]* ]]
+# kb_build_index: for each predicate name, KBF_<name> lists the indexes of
+# its facts in KB_FACTS and KBA_<name> the indexes of its rule bodies in
+# KB_ALTS, so the search only looks at clauses that could match.
+# (Predicate names are valid shell names, so they can be part of one.)
+KB_INDEXED_NAMES=()
+kb_build_index() {
+    local name i entry
+    for name in "${KB_INDEXED_NAMES[@]}"; do
+        unset "KBF_${name}" "KBA_${name}"
+    done
+    KB_INDEXED_NAMES=()
+    for ((i = 0; i < ${#KB_FACTS[@]}; i++)); do
+        name="${KB_FACTS[i]%%"$AST_FS"*}"
+        add_unique KB_INDEXED_NAMES "$name"
+        eval "KBF_${name}+=($i)"
+    done
+    for ((i = 0; i < ${#KB_ALTS[@]}; i++)); do
+        entry="${KB_ALTS[i]}"
+        name="${KB_RULES[${entry%%"$AST_FS"*}]%%"$AST_FS"*}"
+        add_unique KB_INDEXED_NAMES "$name"
+        eval "KBA_${name}+=($i)"
+    done
 }
 
+# A variable is a name: it starts with a letter or _ (renamed variables
+# like x#7 too). Strings, numbers, [] and lists (@N) are not variables.
+is_variable() {
+    [[ "$1" == [a-zA-Z_]* ]]
+}
+
+# Built-in goals with two sides: comparisons and = (calculation).
 is_comparison() {
     case "$1" in
-        "<" | ">" | "<=" | ">=" | "==" | "!=") return 0 ;;
+        "<" | ">" | "<=" | ">=" | "==" | "!=" | "=") return 0 ;;
     esac
     return 1
+}
+
+# side_pretty SIDE -> PRETTY: a side of a comparison as written in source.
+side_pretty() {
+    if is_expression "$1"; then
+        expr_pretty "$1"
+    elif is_cell "$1"; then
+        term_text "$1"
+        PRETTY="$TERM_TEXT"
+    else
+        PRETTY="$1"
+    fi
+}
+
+# is_gather NAME: collect:p or count:p (see src/parser.sh)
+is_gather() {
+    [[ "$1" == collect:* || "$1" == count:* ]]
+}
+
+# gather_parts NAME ARGS -> GATHER_KIND (collect or count), GATHER_PRED,
+# GATHER_TEMPLATE (collect only), GATHER_ARGS (joined by $AST_AS), and
+# GATHER_RESULT.
+gather_parts() {
+    local -a parts
+    GATHER_KIND="${1%%:*}"
+    GATHER_PRED="${1#*:}"
+    split_on "$AST_AS" "$2"
+    parts=("${SPLIT[@]}")
+    GATHER_RESULT="${parts[${#parts[@]} - 1]}"
+    unset 'parts[${#parts[@]}-1]'
+    GATHER_TEMPLATE=""
+    if [[ "$GATHER_KIND" == "collect" ]]; then
+        GATHER_TEMPLATE="${parts[0]}"
+        parts=("${parts[@]:1}")
+    fi
+    local IFS="$AST_AS"
+    GATHER_ARGS="${parts[*]}"
 }
 
 # format_goal NAME ARGS -> FORMATTED: how a goal reads in source code.
 # ARGS are joined by $AST_AS.
 format_goal() {
     local name="$1" args="$2"
+    if is_gather "$name"; then
+        gather_parts "$name" "$args"
+        local kind="$GATHER_KIND" template="$GATHER_TEMPLATE" result="$GATHER_RESULT"
+        format_goal "$GATHER_PRED" "$GATHER_ARGS"
+        local inner="$FORMATTED"
+        side_pretty "$result"
+        result="$PRETTY"
+        if [[ "$kind" == "collect" ]]; then
+            side_pretty "$template"
+            FORMATTED="collect($PRETTY, $inner, $result)"
+        else
+            FORMATTED="count($inner, $result)"
+        fi
+        return 0
+    fi
     if is_comparison "$name"; then
-        FORMATTED="${args%%"$AST_AS"*} $name ${args#*"$AST_AS"}"
-    elif [[ "$name" == "!"* ]]; then
-        FORMATTED="NOT ${name#!}(${args//$AST_AS/, })"
+        side_pretty "${args%%"$AST_AS"*}"
+        FORMATTED="$PRETTY $name "
+        side_pretty "${args#*"$AST_AS"}"
+        FORMATTED+="$PRETTY"
     else
-        FORMATTED="$name(${args//$AST_AS/, })"
+        local term shown=""
+        local -a terms
+        split_on "$AST_AS" "$args"
+        terms=("${SPLIT[@]}")
+        for term in "${terms[@]}"; do
+            is_cell "$term" && term_text "$term" && term="$TERM_TEXT"
+            shown="${shown:+${shown}, }${term}"
+        done
+        if [[ "$name" == "!"* ]]; then
+            FORMATTED="NOT ${name#!}($shown)"
+        else
+            FORMATTED="$name($shown)"
+        fi
     fi
 }
 
@@ -128,6 +220,13 @@ kb_check_arity() {
         entry="${entry#*"$AST_FS"}"
         name="${entry%%"$AST_FS"*}"
         is_comparison "$name" && continue
+        if is_gather "$name"; then
+            gather_parts "$name" "${entry#*"$AST_FS"}"
+            name="$GATHER_PRED"
+            arg_count "$GATHER_ARGS"
+            uses+=("${name}/${ARG_COUNT}")
+            continue
+        fi
         name="${name#!}"
         arg_count "${entry#*"$AST_FS"}"
         uses+=("${name}/${ARG_COUNT}")
@@ -162,14 +261,15 @@ kb_print() {
     local entry
     echo "Facts (${#KB_FACTS[@]}):"
     for entry in "${KB_FACTS[@]}"; do
-        entry="${entry/$AST_FS/(}"
-        echo "  ${entry//$AST_AS/, })"
+        format_goal "${entry%%"$AST_FS"*}" "${entry#*"$AST_FS"}"
+        echo "  $FORMATTED"
     done
     echo "Rules (${#KB_RULES[@]}):"
     local i goal op
     for ((i = 0; i < ${#KB_RULES[@]}; i++)); do
-        entry="${KB_RULES[$i]/$AST_FS/(}"
-        echo "  ${entry//$AST_AS/, }):"
+        entry="${KB_RULES[$i]}"
+        format_goal "${entry%%"$AST_FS"*}" "${entry#*"$AST_FS"}"
+        echo "  $FORMATTED:"
         for goal in "${KB_GOALS[@]}"; do
             [[ "${goal%%"$AST_FS"*}" == "$i" ]] || continue
             goal="${goal#*"$AST_FS"}"

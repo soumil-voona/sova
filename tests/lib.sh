@@ -7,6 +7,10 @@
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOVA="$TEST_DIR/../sova"
 
+# Tests run with a lower depth limit than the default (200) so the cases
+# that hit it on purpose stay fast. Tests that need more set it themselves.
+export SOVA_MAX_DEPTH=100
+
 PASS=0
 FAIL=0
 

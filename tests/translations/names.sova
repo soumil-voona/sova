@@ -1,0 +1,17 @@
+fact class("math", "Ada")
+fact class("art", "Ben")
+fact parent("Ada", "Cy")
+fact path("a\b", "x")
+rule takes(from, results):
+    class(results, from)
+rule odd(v1, parent):
+    parent(v1, parent)
+    AND NOT class("art", v1)
+rule p(in):
+    path(in, z)
+
+# JavaScript keywords and builtins as variable names
+fact pair("x", "y")
+rule js_names(const, Set):
+    pair(const, Set)
+    AND const != "zzz"

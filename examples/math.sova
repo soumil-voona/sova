@@ -1,0 +1,48 @@
+# Arithmetic: + - * / % with the usual precedence. / and % round down.
+# "m = n - 1" gives m a value (or checks it, if m already has one).
+
+# n! = n * (n - 1) * ... * 1
+fact factorial(0, 1)
+rule factorial(n, f):
+    n > 0
+    AND m = n - 1
+    AND factorial(m, g)
+    AND f = n * g
+
+# Fibonacci numbers: 0, 1, 1, 2, 3, 5, 8, ...
+fact fib(0, 0)
+fact fib(1, 1)
+rule fib(n, f):
+    n > 1
+    AND a = n - 1
+    AND b = n - 2
+    AND fib(a, fa)
+    AND fib(b, fb)
+    AND f = fa + fb
+
+# Euclid's algorithm for the greatest common divisor
+fact gcd(a, 0, a)
+rule gcd(a, b, g):
+    b > 0
+    AND r = a % b
+    AND gcd(b, r, g)
+
+# How many steps the Collatz sequence takes to reach 1
+fact steps(1, 0)
+rule steps(n, s):
+    n > 1
+    AND n % 2 == 0
+    AND m = n / 2
+    AND steps(m, t)
+    AND s = t + 1
+rule steps(n, s):
+    n > 1
+    AND n % 2 == 1
+    AND m = 3 * n + 1
+    AND steps(m, t)
+    AND s = t + 1
+
+ask factorial(10, f)
+ask fib(10, f)
+ask gcd(48, 18, g)
+ask steps(6, s)

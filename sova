@@ -3,6 +3,9 @@
 #
 # Usage: ./sova [--brief] FILE
 #        ./sova -i [--brief] [FILE]
+#        ./sova --pseudocode TARGET FILE
+#        ./sova --python | --functional | --javascript TARGET FILE
+#        ./sova --compare TARGET FILE
 #        ./sova --tokens | --ast | --kb FILE
 #
 #   (no flag)  answer each ask, with a proof for every answer and an
@@ -10,6 +13,19 @@
 #   --brief    answer without proofs or explanations
 #   -i         interactive prompt: load FILE (optional), then ask questions
 #              and add facts or rules
+#   --pseudocode TARGET
+#              show how TARGET could be written in a conventional language;
+#              TARGET is a predicate name (grandparent) or a call
+#              (ancestor("Ada", who)) whose known values shape the functions
+#   --python TARGET
+#              the same, as a runnable Python program
+#   --functional TARGET
+#              the same, as Python written with list comprehensions
+#   --javascript TARGET  (or --js)
+#              the same, as a runnable JavaScript program (Node.js)
+#   --compare TARGET
+#              TARGET written three ways (logic, imperative, functional)
+#              with a table of how the ideas map between them
 #   --tokens   show lexer tokens
 #   --ast      show the parsed AST
 #   --kb       show the knowledge base
@@ -26,11 +42,17 @@ source "$SOVA_DIR/src/parser.sh"
 source "$SOVA_DIR/src/knowledge_base.sh"
 # shellcheck source=src/inference.sh
 source "$SOVA_DIR/src/inference.sh"
+# shellcheck source=src/builtins.sh
+source "$SOVA_DIR/src/builtins.sh"
+# shellcheck source=src/pseudocode.sh
+source "$SOVA_DIR/src/pseudocode.sh"
+# shellcheck source=src/compare.sh
+source "$SOVA_DIR/src/compare.sh"
 # shellcheck source=src/repl.sh
 source "$SOVA_DIR/src/repl.sh"
 
 usage() {
-    sed -n '4,6p' "${BASH_SOURCE[0]}" | sed 's/^# //' >&2
+    sed -n '4,9p' "${BASH_SOURCE[0]}" | sed 's/^# //' >&2
     exit 1
 }
 
@@ -43,6 +65,19 @@ while [[ "$1" == -* ]]; do
         --kb)               mode="kb" ;;
         --brief)            SOVA_BRIEF=1 ;;
         -i | --interactive) mode="repl" ;;
+        --pseudocode | --python | --functional | --javascript | --js | --compare)
+            mode="translate"
+            case "$1" in
+                --pseudocode) translate_lang="pseudo" ;;
+                --python)     translate_lang="python" ;;
+                --functional) translate_lang="functional" ;;
+                --compare)    translate_lang="compare" ;;
+                *)            translate_lang="javascript" ;;
+            esac
+            translate_target="$2"
+            [[ -n "$translate_target" ]] || usage
+            shift
+            ;;
         *)                  echo "Unknown option: $1" >&2; usage ;;
     esac
     shift
@@ -75,6 +110,15 @@ case "$mode" in
         kb_load
         kb_print_arity_warnings
         kb_print
+        ;;
+    translate)
+        kb_load
+        kb_print_arity_warnings
+        if [[ "$translate_lang" == "compare" ]]; then
+            compare_paradigms "$translate_target"
+        else
+            translate_to "$translate_lang" "$translate_target"
+        fi
         ;;
     run)
         kb_load

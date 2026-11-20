@@ -84,12 +84,28 @@ This is the feature that sets Sova apart, so build it right after inference work
 - [x] Arity checking: warn when `parent/2` and `parent/3` both appear
 - [x] An interactive REPL (`./sova -i file.sova` → `?- grandparent("Alex", who)`)
 
+### 5b. A complete language (done 2026-11-19)
+
+- [x] **Checked the engine on real programs:** cycles, map coloring, a logic puzzle, and 400-step chains. Several fixes came out of it:
+  - Variable lookup was quadratic in Bash. It now uses `${s%%pattern*}` instead of `${s#*pattern}`.
+  - The solver uses an explicit stack instead of recursion.
+  - Facts are indexed by predicate, and by their first argument.
+  - A fully known goal that repeats while it's still being proved is skipped, so cycles and symmetric rules finish.
+  - The depth limit now counts how deeply rules are nested (200), not the number of steps.
+- [x] **Arithmetic:** `+ - * / %`, parentheses, and precedence, with `/` and `%` rounding down. `=` gives a value or checks one. Translated to assignments in every language.
+- [x] **Lists:** `[]`, `[1, 2]`, and `[h | t]`, stored as unchangeable cells. Translated with list patterns (`isinstance` / `Array.isArray` checks, slices).
+- [x] **`collect` and `count`:** they report an error when the gathered-over variable is needed later.
+- [x] **Text built-ins:** `concat` (works in every direction), `text_length`, and `chars`.
+- Still missing: decimals (Bash arithmetic has none), reading input or printing from rules, and importing other files.
+
 ### 6. Learning environment (later)
 
 Once proofs exist, these follow naturally from the rule AST:
-- [ ] `pseudocode grandparent`: nested loops over facts, one loop per goal
-- [ ] `translate grandparent to python`: a comprehension or generator over fact tuples
-- [ ] JavaScript target, side-by-side paradigm comparisons, exercises
+- [x] `pseudocode grandparent`: `./sova --pseudocode TARGET FILE`, or `pseudocode` at the prompt. Each rule becomes a function shaped by which arguments are known (`all_`, `_given_`, `is_`), and facts become data tables
+- [x] `translate grandparent to python`: `./sova --python TARGET FILE`, or `python` / `translate ... to python` at the prompt. Built from the same logic as the pseudocode, and tested by running the Python and comparing its answers with Sova's
+- [x] JavaScript target: `./sova --javascript TARGET FILE` (or `--js`), and `javascript` / `js` / `translate ... to javascript` at the prompt. Tested by running with Node and comparing with Sova's answers, using the same cases as Python
+- [x] Side-by-side paradigm comparisons: `./sova --compare TARGET FILE` shows logic, imperative Python, and functional Python (list comprehensions, also `--functional`), with line counts and a table of how the ideas map
+- [ ] Exercises
 
 ---
 

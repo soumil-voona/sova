@@ -1,0 +1,28 @@
+# List cases for translation tests (the list algorithms are in
+# examples/lists.sova).
+rule split(l, h, t):
+    l = [h | t]
+
+rule first_two([a, b | rest], a, b, rest):
+    a != b
+
+fact pairs([["a", 1], ["b", 2]])
+rule second_pair_name(n):
+    pairs([first, [n, v]])
+
+rule same(a, b):
+    a == b
+
+fact member(x, [x | rest])
+rule member(x, [y | rest]):
+    member(x, rest)
+rule missing(x, l):
+    NOT member(x, l)
+
+fact basket("Ana", ["eggs", "milk"])
+fact basket("Ben", [])
+rule buys(who, item):
+    basket(who, items)
+    AND member(item, items)
+rule empty_basket(who):
+    basket(who, [])

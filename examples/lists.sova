@@ -1,0 +1,63 @@
+# Lists: [] is empty, [1, 2, 3] has three items, and [head | tail] splits a
+# list into its first item and the rest.
+
+# How many items a list has
+fact length([], 0)
+rule length([head | tail], n):
+    length(tail, m)
+    AND n = m + 1
+
+# Joining two lists (also works backwards, to split a list)
+fact append([], ys, ys)
+rule append([x | xs], ys, [x | zs]):
+    append(xs, ys, zs)
+
+# Whether x is in a list
+fact member(x, [x | rest])
+rule member(x, [y | rest]):
+    member(x, rest)
+
+# Adding up a list of numbers
+fact sum([], 0)
+rule sum([x | xs], total):
+    sum(xs, rest)
+    AND total = x + rest
+
+# Reversing a list, using an accumulator
+fact reverse_into([], acc, acc)
+rule reverse_into([x | xs], acc, out):
+    reverse_into(xs, [x | acc], out)
+rule reverse(xs, out):
+    reverse_into(xs, [], out)
+
+# The largest number in a list
+fact max_of([x], x)
+rule max_of([x | xs], m):
+    max_of(xs, rest)
+    AND x >= rest
+    AND m = x
+rule max_of([x | xs], m):
+    max_of(xs, rest)
+    AND x < rest
+    AND m = rest
+
+# Insertion sort: put each item into its place in the sorted rest
+fact insert(x, [], [x])
+rule insert(x, [y | ys], [x, y | ys]):
+    x <= y
+rule insert(x, [y | ys], [y | zs]):
+    x > y
+    AND insert(x, ys, zs)
+fact sort([], [])
+rule sort([x | xs], sorted):
+    sort(xs, rest)
+    AND insert(x, rest, sorted)
+
+ask length([5, 6, 7], n)
+ask append([1, 2], [3], all)
+ask append(front, back, [1, 2])
+ask member(x, ["a", "b"])
+ask sum([1, 2, 3, 4], s)
+ask reverse([1, 2, 3], r)
+ask max_of([3, 9, 2], m)
+ask sort([3, 1, 2, 5, 4], s)

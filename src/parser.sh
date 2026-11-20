@@ -12,13 +12,29 @@
 #                                  op is FIRST, AND, or OR
 #   ASK  <name> <args>             ask grandparent("Alex", "Jamie")
 #
-# Terms are quoted strings ("Alex"), integers (17, -3), or variables (x).
+# Terms are quoted strings ("Alex"), integers (17, -3), variables (x), or
+# lists ([], [1, 2], [head | tail]; see src/terms.sh).
 # Rule heads may contain any term: rule likes("Sam", food):
 #
 # Besides predicate calls, a rule body goal can be:
 #   a comparison   age >= 18     name is the operator (<, >, <=, >=, ==, !=)
-#                                and args are the left and right terms
+#                                and args are the left and right sides
+#   a calculation  m = n - 1     name is "="; gives an unknown side the other
+#                                side's value, or checks the two are equal
+#   Each side is a term, or an arithmetic expression stored as tokens (see
+#   src/arith.sh).
 #   a negation     NOT p(x)      name is "!p"; true when p(x) can't be proved
+#   gathering      collect(c, parent(p, c), kids)
+#                  count(parent(p, c), n)
+#                  name is "collect:parent" or "count:parent"; args are the
+#                  template (collect only), parent's arguments, and the
+#                  result. kids is the list of c for every answer to
+#                  parent(p, c); n is how many answers there are.
+
+# shellcheck source=src/arith.sh
+source "$(dirname "${BASH_SOURCE[0]}")/arith.sh"
+# shellcheck source=src/terms.sh
+source "$(dirname "${BASH_SOURCE[0]}")/terms.sh"
 
 AST_FS=$'\x1f'
 AST_AS=$'\x1e'
@@ -26,8 +42,6 @@ AST=()
 
 NAME_PATTERN='^[a-zA-Z_][a-zA-Z0-9_]*$'
 NUMBER_PATTERN='^-?[0-9]+$'
-TERM_REGEX='("[^"]*"|-?[a-zA-Z0-9_]+)'
-COMPARISON_PATTERN="^${TERM_REGEX}[[:space:]]*(<=|>=|==|!=|<|>)[[:space:]]*${TERM_REGEX}\$"
 
 trim() {
     local value="$1"
@@ -53,8 +67,21 @@ strip_comment() {
     printf '%s' "$line"
 }
 
+# is_term TEXT: succeeds if TEXT is one whole term, and leaves it in TERM.
 is_term() {
-    [[ "$1" =~ ^\"[^\"]*\"$ || "$1" =~ $NAME_PATTERN || "$1" =~ $NUMBER_PATTERN ]]
+    parse_term "$1"
+}
+
+# parse_terms TEXT... -> SPLIT_RESULT: each text parsed as a term (numbers
+# made canonical, lists built). Fails if any isn't a term.
+parse_terms() {
+    local text
+    local -a terms=()
+    for text in "$@"; do
+        parse_term "$text" || return 1
+        terms+=("$TERM")
+    done
+    SPLIT_RESULT=("${terms[@]}")
 }
 
 # canonical_term TERM -> CANONICAL: numbers in standard form (007 -> 7,
@@ -83,10 +110,11 @@ canonical_args() {
     done
 }
 
-# Splits on commas outside quotes into SPLIT_RESULT. Fails on an unclosed quote.
+# Splits on commas outside quotes, brackets, and parentheses into
+# SPLIT_RESULT. Fails on an unclosed quote.
 split_args() {
     local text="$1"
-    local in_string=0
+    local in_string=0 depth=0
     local current=""
     local i char
     SPLIT_RESULT=()
@@ -95,7 +123,13 @@ split_args() {
         if [[ "$char" == '"' ]]; then
             in_string=$((1 - in_string))
             current+="$char"
-        elif [[ "$char" == "," && "$in_string" -eq 0 ]]; then
+        elif [[ "$in_string" -eq 0 && ( "$char" == "[" || "$char" == "(" ) ]]; then
+            depth=$((depth + 1))
+            current+="$char"
+        elif [[ "$in_string" -eq 0 && ( "$char" == "]" || "$char" == ")" ) ]]; then
+            depth=$((depth - 1))
+            current+="$char"
+        elif [[ "$char" == "," && "$in_string" -eq 0 && "$depth" -eq 0 ]]; then
             SPLIT_RESULT+=("$(trim "$current")")
             current=""
         else
@@ -114,7 +148,6 @@ join_args() {
 # Parses "name(term, ...)" into CALL_NAME and CALL_ARGS (joined with $AST_AS).
 parse_call() {
     local expression="$1"
-    local argument
     local arguments
     [[ "$expression" == *"("*")" ]] || return 1
     CALL_NAME="$(trim "${expression%%(*}")"
@@ -123,10 +156,7 @@ parse_call() {
     arguments="${arguments%)}"
     [[ -n "$(trim "$arguments")" ]] || return 1
     split_args "$arguments" || return 1
-    for argument in "${SPLIT_RESULT[@]}"; do
-        is_term "$argument" || return 1
-    done
-    canonical_args "${SPLIT_RESULT[@]}"
+    parse_terms "${SPLIT_RESULT[@]}" || return 1
     CALL_ARGS="$(join_args "${SPLIT_RESULT[@]}")"
 }
 
@@ -141,13 +171,15 @@ parse_goal() {
         GOAL_ARGS="$CALL_ARGS"
         return 0
     fi
-    if [[ "$expression" =~ $COMPARISON_PATTERN ]]; then
-        local left="${BASH_REMATCH[1]}" op="${BASH_REMATCH[2]}" right="${BASH_REMATCH[3]}"
-        is_term "$left" && is_term "$right" || return 1
-        canonical_term "$left"
-        left="$CANONICAL"
-        canonical_term "$right"
-        right="$CANONICAL"
+    if parse_gather "$expression"; then
+        return 0
+    fi
+    if find_operator "$expression"; then
+        local op="$OP" left right
+        parse_side "${expression:0:OP_POS}" || return 1
+        left="$SIDE"
+        parse_side "${expression:OP_POS + ${#op}}" || return 1
+        right="$SIDE"
         GOAL_NAME="$op"
         GOAL_ARGS="${left}${AST_AS}${right}"
         return 0
@@ -155,6 +187,38 @@ parse_goal() {
     parse_call "$expression" || return 1
     GOAL_NAME="$CALL_NAME"
     GOAL_ARGS="$CALL_ARGS"
+}
+
+# parse_gather EXPRESSION: collect(template, call, result) or
+# count(call, result) -> GOAL_NAME and GOAL_ARGS. Fails (so the goal is
+# read as an ordinary call) if EXPRESSION isn't one of these shapes.
+parse_gather() {
+    local expression="$1" kind inner template result
+    local -a parts
+    [[ "$expression" =~ ^(collect|count)[[:space:]]*\((.*)\)$ ]] || return 1
+    kind="${BASH_REMATCH[1]}"
+    split_args "${BASH_REMATCH[2]}" || return 1
+    parts=("${SPLIT_RESULT[@]}")
+    if [[ "$kind" == "collect" ]]; then
+        [[ "${#parts[@]}" -eq 3 ]] || return 1
+        parse_term "${parts[0]}" || return 1
+        template="$TERM"
+        inner="${parts[1]}"
+        parse_term "${parts[2]}" || return 1
+        result="$TERM"
+    else
+        [[ "${#parts[@]}" -eq 2 ]] || return 1
+        inner="${parts[0]}"
+        parse_term "${parts[1]}" || return 1
+        result="$TERM"
+    fi
+    parse_call "$inner" || return 1
+    GOAL_NAME="${kind}:${CALL_NAME}"
+    if [[ "$kind" == "collect" ]]; then
+        GOAL_ARGS="${template}${AST_AS}${CALL_ARGS}${AST_AS}${result}"
+    else
+        GOAL_ARGS="${CALL_ARGS}${AST_AS}${result}"
+    fi
 }
 
 parser_error() {
@@ -200,7 +264,7 @@ parse_program() {
                     return 1
                 fi
                 if ! parse_goal "$content"; then
-                    parser_error "$line_number" "expected a predicate call, comparison, or NOT in rule '$rule_name'"
+                    parser_error "$line_number" "expected a predicate call, comparison, calculation, NOT, collect, or count in rule '$rule_name'"
                     return 1
                 fi
                 AST+=("GOAL${AST_FS}${op}${AST_FS}${GOAL_NAME}${AST_FS}${GOAL_ARGS}")
@@ -252,7 +316,7 @@ parse_program() {
                     return 1
                 fi
             done
-            canonical_args "${params[@]}"
+            parse_terms "${params[@]}"
             AST+=("RULE${AST_FS}${rule_name}${AST_FS}$(join_args "${SPLIT_RESULT[@]}")")
             in_rule=1
             goal_count=0
@@ -270,10 +334,30 @@ parse_program() {
 }
 
 # Prints the AST in a readable form, one node per line.
+# Lists are shown as written ([1, 2]) rather than as cell numbers.
 print_ast() {
-    local node
+    local node field term shown out
+    local -a fields terms
     for node in "${AST[@]}"; do
-        node="${node//$AST_FS/ | }"
-        printf '%s\n' "${node//$AST_AS/, }"
+        split_on "$AST_FS" "$node"
+        fields=("${SPLIT[@]}")
+        out=""
+        for field in "${fields[@]}"; do
+            split_on "$AST_AS" "$field"
+            terms=("${SPLIT[@]}")
+            shown=""
+            for term in "${terms[@]}"; do
+                if is_expression "$term"; then
+                    expr_pretty "$term"
+                    term="$PRETTY"
+                elif is_cell "$term"; then
+                    term_text "$term"
+                    term="$TERM_TEXT"
+                fi
+                shown="${shown:+${shown}, }${term}"
+            done
+            out="${out:+${out} | }${shown}"
+        done
+        printf '%s\n' "$out"
     done
 }

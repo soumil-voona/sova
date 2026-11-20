@@ -111,8 +111,20 @@ run_test "NOT as the first goal" \
     $'rule ok(x):\n    NOT banned(x)' \
     "PASS"
 
-run_test "Single = is not a comparison" \
-    $'rule r(x):\n    p(x)\n    AND x = 1' \
+run_test "Calculation with =" \
+    $'rule r(x, y):\n    p(x)\n    AND y = x * (2 + 1) % 4' \
+    "PASS"
+
+run_test "Unclosed parenthesis in a calculation" \
+    $'rule r(x, y):\n    p(x)\n    AND y = (x + 1' \
+    "FAIL"
+
+run_test "Text inside a calculation" \
+    $'rule r(x, y):\n    p(x)\n    AND y = x + "a"' \
+    "FAIL"
+
+run_test "Two operators in a row" \
+    $'rule r(x, y):\n    p(x)\n    AND y = x * * 2' \
     "FAIL"
 
 run_test "Comparison needs two sides" \

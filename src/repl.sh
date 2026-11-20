@@ -6,6 +6,14 @@
 #   parent(who, "Sam")      a question ("ask" and a trailing "?" are optional)
 #   fact parent("A", "B")   adds a fact
 #   rule r(x):              adds a rule; type its body lines, then an empty line
+#   pseudocode ancestor     shows ancestor written as pseudocode (also takes
+#                           a call, e.g. pseudocode ancestor("Ada", who))
+#   python ancestor         the same as a Python program; also written as
+#                           translate ancestor to python
+#   javascript ancestor     the same as a JavaScript program (or js, or
+#                           translate ancestor to javascript)
+#   functional ancestor     the same as Python list comprehensions
+#   compare ancestor        logic vs. imperative vs. functional, side by side
 #   facts                   shows the knowledge base
 #   help, quit
 #
@@ -32,6 +40,14 @@ repl_help() {
   parent(who, "Sam")      ask a question ("ask" and "?" are optional)
   fact parent("A", "B")   add a fact
   rule r(x):              add a rule: type its body lines, then an empty line
+  pseudocode ancestor     show a predicate as pseudocode; a call like
+                          ancestor("Ada", who) shapes it around known values
+  python ancestor         the same as a runnable Python program
+                          (or: translate ancestor to python)
+  javascript ancestor     the same as a JavaScript program
+                          (or: js ancestor, translate ancestor to javascript)
+  functional ancestor     the same as Python list comprehensions
+  compare ancestor        logic vs. imperative vs. functional code
   facts                   show everything Sova knows
   quit                    leave
 EOF
@@ -123,6 +139,31 @@ repl() {
                 ;;
             help)
                 repl_help
+                ;;
+            pseudocode\ *)
+                translate_to pseudo "$(trim "${line#pseudocode}")"
+                ;;
+            python\ *)
+                translate_to python "$(trim "${line#python}")"
+                ;;
+            javascript\ * | js\ *)
+                translate_to javascript "$(trim "${line#* }")"
+                ;;
+            functional\ *)
+                translate_to functional "$(trim "${line#functional}")"
+                ;;
+            compare\ *)
+                compare_paradigms "$(trim "${line#compare}")"
+                ;;
+            translate\ *\ to\ *)
+                text="${line#translate }"
+                case "${line##* to }" in
+                    python) translate_to python "$(trim "${text% to *}")" ;;
+                    javascript | js) translate_to javascript "$(trim "${text% to *}")" ;;
+                    functional) translate_to functional "$(trim "${text% to *}")" ;;
+                    pseudocode) translate_to pseudo "$(trim "${text% to *}")" ;;
+                    *) echo "  Can translate to pseudocode, python, functional, or javascript" >&2 ;;
+                esac
                 ;;
             facts | kb)
                 kb_print
