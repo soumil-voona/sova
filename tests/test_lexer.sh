@@ -60,4 +60,29 @@ IDENTIFIER: p
 LEFT_PAREN
 Lexical error on line 1: unterminated string'
 
+check_output "Numbers, NOT, and operators" "--tokens" \
+'rule r(x):
+    a >= -18
+    AND NOT p(x)
+    AND x!="b"' \
+'KEYWORD: rule
+IDENTIFIER: r
+LEFT_PAREN
+IDENTIFIER: x
+RIGHT_PAREN
+COLON
+IDENTIFIER: a
+OPERATOR: >=
+NUMBER: -18
+KEYWORD: AND
+KEYWORD: NOT
+IDENTIFIER: p
+LEFT_PAREN
+IDENTIFIER: x
+RIGHT_PAREN
+KEYWORD: AND
+IDENTIFIER: x
+OPERATOR: !=
+STRING: "b"'
+
 finish_tests

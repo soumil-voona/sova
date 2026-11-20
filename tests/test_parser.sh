@@ -83,6 +83,46 @@ run_test "Hash inside string" \
     'fact tag("Alex#1")' \
     "PASS"
 
+run_test "Numbers as arguments" \
+    'fact age("Sam", 17)' \
+    "PASS"
+
+run_test "Negative numbers" \
+    'fact temp("Oslo", -3)' \
+    "PASS"
+
+run_test "Constants in a rule head" \
+    $'rule likes("Sam", food):\n    tasty(food)' \
+    "PASS"
+
+run_test "Comparison goal" \
+    $'rule adult(x):\n    age(x, a)\n    AND a >= 18' \
+    "PASS"
+
+run_test "Comparison with strings" \
+    $'rule other(x, y):\n    p(x)\n    AND x != "Bob"' \
+    "PASS"
+
+run_test "NOT goal" \
+    $'rule ok(x):\n    p(x)\n    AND NOT banned(x)' \
+    "PASS"
+
+run_test "NOT as the first goal" \
+    $'rule ok(x):\n    NOT banned(x)' \
+    "PASS"
+
+run_test "Single = is not a comparison" \
+    $'rule r(x):\n    p(x)\n    AND x = 1' \
+    "FAIL"
+
+run_test "Comparison needs two sides" \
+    $'rule r(x):\n    p(x)\n    AND x >' \
+    "FAIL"
+
+run_test "NOT needs a predicate call" \
+    $'rule r(x):\n    NOT x' \
+    "FAIL"
+
 run_ast_test() {
     local temp_file
     temp_file=$(mktemp)

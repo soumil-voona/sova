@@ -51,7 +51,8 @@ ask grandparent(z, x)" \
 check_output "Wrong arity for a rule is false" "--brief" \
 "$FAMILY
 ask grandparent(\"Alex\")" \
-'ask grandparent("Alex")
+'Warning: '"'"'grandparent'"'"' is used with different numbers of arguments (2, 1)
+ask grandparent("Alex")
   FALSE'
 
 check_output "OR gives alternatives" "--brief" \

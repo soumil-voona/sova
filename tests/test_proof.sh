@@ -83,7 +83,7 @@ check_output "FALSE lists dead ends" "" \
 ask grandparent(\"Sam\", \"Alex\")" \
 'ask grandparent("Sam", "Alex")
   FALSE
-  Dead ends (no fact or rule matches):
+  Dead ends (these goals could not be proved):
     parent("Jamie", "Alex")'
 
 check_output "FALSE names undefined predicates" "" \
@@ -107,7 +107,7 @@ fact q("0")
 ask r(n)' \
 'ask r(n)
   FALSE
-  Dead ends (no fact or rule matches):
+  Dead ends (these goals could not be proved):
     q("1")
     q("2")
     q("3")

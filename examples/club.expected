@@ -1,0 +1,36 @@
+ask member(who)
+  who = "Jo"
+    member("Jo")  [rule member]
+      age("Jo", 30)  [fact]
+      30 >= 18  [comparison]
+      NOT banned("Jo")  [not provable]
+  who = "Ana"
+    member("Ana")  [rule member]
+      age("Ana", 22)  [fact]
+      22 >= 18  [comparison]
+      NOT banned("Ana")  [not provable]
+  TRUE
+
+ask member("Bob")
+  FALSE
+  Dead ends (these goals could not be proved):
+    NOT banned("Bob")  (it can be proved)
+
+ask can_bring("Ana", who)
+  who = "Jo"
+    can_bring("Ana", "Jo")  [rule can_bring]
+      friend("Ana", "Jo")  [fact]
+      member("Jo")  [rule member]
+        age("Jo", 30)  [fact]
+        30 >= 18  [comparison]
+        NOT banned("Jo")  [not provable]
+      "Ana" != "Jo"  [comparison]
+  TRUE
+
+ask junior(who)
+  who = "Sam"
+    junior("Sam")  [rule junior]
+      age("Sam", 17)  [fact]
+      17 < 18  [comparison]
+  TRUE
+

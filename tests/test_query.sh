@@ -61,7 +61,8 @@ ask same(x, x)' \
 check_output "Arity mismatch is false" "--brief" \
 "$FAMILY
 ask parent(\"Alex\")" \
-'ask parent("Alex")
+'Warning: '"'"'parent'"'"' is used with different numbers of arguments (2, 1)
+ask parent("Alex")
   FALSE'
 
 check_output "Syntax errors stop the run" "--brief" \

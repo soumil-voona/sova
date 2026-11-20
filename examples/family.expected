@@ -17,6 +17,6 @@ ask parent(who, "Jamie")
 
 ask parent("Jamie", "Alex")
   FALSE
-  Dead ends (no fact or rule matches):
+  Dead ends (these goals could not be proved):
     parent("Jamie", "Alex")
 

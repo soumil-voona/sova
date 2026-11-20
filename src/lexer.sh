@@ -3,7 +3,7 @@
 
 classify_word() {
     word="$1"
-    KEYWORDS=("fact" "rule" "ask" "AND" "OR")
+    KEYWORDS=("fact" "rule" "ask" "AND" "OR" "NOT")
     found=0
     for item in "${KEYWORDS[@]}"; do
         if [[ "$word" == "$item" ]]; then
@@ -13,6 +13,8 @@ classify_word() {
     done
     if [[ "$found" -eq 1 ]]; then
         echo "KEYWORD: $word"
+    elif [[ "$word" =~ ^-?[0-9]+$ ]]; then
+        echo "NUMBER: $word"
     else
         echo "IDENTIFIER: $word"
     fi
@@ -65,6 +67,18 @@ tokenize_file() {
                 if [[ -n "$current_word" ]]; then
                     classify_word "$current_word"
                     current_word=""
+                fi
+
+            elif [[ "$char" == "<" || "$char" == ">" || "$char" == "=" || "$char" == "!" ]]; then
+                if [[ -n "$current_word" ]]; then
+                    classify_word "$current_word"
+                    current_word=""
+                fi
+                if [[ "${line:$((i + 1)):1}" == "=" ]]; then
+                    echo "OPERATOR: ${char}="
+                    i=$((i + 1))
+                else
+                    echo "OPERATOR: $char"
                 fi
 
             elif [[ "$char" == "(" || "$char" == ")" || "$char" == "," || "$char" == ":" ]]; then

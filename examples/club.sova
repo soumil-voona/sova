@@ -1,0 +1,30 @@
+# Numbers, comparisons, NOT, and constants in rule heads.
+
+fact age("Sam", 17)
+fact age("Jo", 30)
+fact age("Bob", 45)
+fact age("Ana", 22)
+fact banned("Bob")
+fact friend("Ana", "Jo")
+
+# Members must be adults who aren't banned.
+rule member(x):
+    age(x, a)
+    AND a >= 18
+    AND NOT banned(x)
+
+# Anyone can bring a friend who is also a member, as long as it's not themself.
+rule can_bring(x, guest):
+    friend(x, guest)
+    AND member(guest)
+    AND x != guest
+
+# A constant in a rule head: Sam is the club's only junior member.
+rule junior("Sam"):
+    age("Sam", a)
+    AND a < 18
+
+ask member(who)
+ask member("Bob")
+ask can_bring("Ana", who)
+ask junior(who)

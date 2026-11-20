@@ -12,7 +12,7 @@ ask ancestor("Ada", "Eli")
 
 ask ancestor("Eli", "Ada")
   FALSE
-  Dead ends (no fact or rule matches):
+  Dead ends (these goals could not be proved):
     parent("Eli", "Ada")
     parent("Eli", _)
 

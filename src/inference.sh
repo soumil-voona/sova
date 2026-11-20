@@ -28,6 +28,14 @@
 # The search stops going deeper at $SOVA_MAX_DEPTH steps. This keeps rules
 # that call themselves forever (e.g. left recursion) from crashing Bash.
 #
+# Built-in goals:
+#   comparisons (a > 18, x != "Bob"): both sides need values. <, >, <=, >=
+#     compare integers; == and != compare numbers by value, anything else as text.
+#   NOT p(x): true when p(x) can't be proved ("negation as failure"). Its
+#     arguments need values first, since "NOT p(x)" with x unknown is ambiguous.
+# A built-in that runs before its variables have values records an error, and
+# the answer becomes UNKNOWN instead of a misleading FALSE.
+#
 # Set SOVA_BRIEF=1 to print answers without proofs or failure notes.
 
 SUBST_SEP=$'\x1c'
@@ -42,6 +50,7 @@ SOLUTIONS=()
 SOLUTION_PROOFS=()
 DEAD_ENDS=()
 UNDEFINED=()
+ERRORS=()
 DEPTH_LIMIT_HIT=0
 
 # split_on SEP TEXT -> SPLIT array. Pure parameter expansion (no subshells).
@@ -55,17 +64,6 @@ split_on() {
     SPLIT+=("$text")
 }
 
-# add_unique ARRAY_NAME VALUE: appends VALUE to the named array if absent.
-add_unique() {
-    local array_name="$1" value="$2" existing
-    eval "local -a items=(\"\${${array_name}[@]}\")"
-    # shellcheck disable=SC2154 # items is declared by the eval above
-    for existing in "${items[@]}"; do
-        [[ "$existing" == "$value" ]] && return 0
-    done
-    eval "${array_name}+=(\"\$value\")"
-}
-
 # walk TERM SUBST -> WALKED: follows bindings until reaching a constant or an
 # unbound variable.
 walk() {
@@ -77,8 +75,8 @@ walk() {
     WALKED="$term"
 }
 
-# resolve_args ARGS SUBST -> RESOLVED: "a, b" with variables filled in.
-# Variables that are still unbound are shown as _.
+# resolve_args ARGS SUBST -> RESOLVED: ARGS (joined by $AST_AS) with
+# variables filled in. Variables that are still unbound are shown as _.
 resolve_args() {
     local subst="$2" term out=""
     local -a terms
@@ -88,7 +86,7 @@ resolve_args() {
         walk "$term" "$subst"
         term="$WALKED"
         is_variable "$term" && term="_"
-        out="${out:+${out}, }${term}"
+        out="${out:+${out}${AST_AS}}${term}"
     done
     RESOLVED="$out"
 }
@@ -152,9 +150,9 @@ rename_goals() {
     RENAMED_GOALS="$out"
 }
 
-# True if any argument is a variable (doesn't start with a quote).
+# True if any argument is a variable (not a quoted string or a number).
 has_variables() {
-    [[ "${AST_AS}$1" == *"${AST_AS}"[!\"]* ]]
+    [[ "${AST_AS}$1" == *"${AST_AS}"[!\"0-9-]* ]]
 }
 
 # rule_label ALT_INDEX -> LABEL: describes the KB_ALTS entry that was used.
@@ -195,13 +193,15 @@ render_proof() {
         source="${fields[3]}"
 
         resolve_args "$args" "$subst"
-        if [[ "$source" == "F" ]]; then
-            LABEL="fact"
-        else
-            rule_label "${source#A}"
-        fi
+        format_goal "$name" "$RESOLVED"
+        case "$source" in
+            F) LABEL="fact" ;;
+            C) LABEL="comparison" ;;
+            N) LABEL="not provable" ;;
+            *) rule_label "${source#A}" ;;
+        esac
         printf -v indent '%*s' $((4 + 2 * level)) ''
-        out+="${indent}${name}(${RESOLVED})  [${LABEL}]"$'\n'
+        out+="${indent}${FORMATTED}  [${LABEL}]"$'\n'
     done
     RENDERED="${out%$'\n'}"
 }
@@ -254,6 +254,17 @@ solve() {
     step="${level}${AST_FS}${name}${AST_FS}${args}${AST_FS}"
     proof="${proof:+${proof}${PROOF_SEP}}"
 
+    if is_comparison "$name"; then
+        solve_comparison "$name" "$args" "$subst" || return 0
+        solve "$rest" "$subst" $((depth + 1)) "${proof}${step}C"
+        return 0
+    fi
+    if [[ "$name" == "!"* ]]; then
+        solve_not "${name#!}" "$args" "$subst" "$level" "$depth" || return 0
+        solve "$rest" "$subst" $((depth + 1)) "${proof}${step}N"
+        return 0
+    fi
+
     # Facts
     for clause in "${KB_FACTS[@]}"; do
         [[ "${clause%%"$AST_FS"*}" == "$name" ]] || continue
@@ -296,7 +307,145 @@ solve() {
         add_unique UNDEFINED "$name"
     elif [[ "$matched" -eq 0 ]]; then
         resolve_args "$args" "$subst"
-        add_unique DEAD_ENDS "${name}(${RESOLVED})"
+        format_goal "$name" "$RESOLVED"
+        add_unique DEAD_ENDS "$FORMATTED"
+    fi
+    return 0
+}
+
+# Shows variables the way the user wrote them (drops "#7" rename suffixes).
+source_name() {
+    local text="$1"
+    while [[ "$text" =~ (#[0-9]+) ]]; do
+        text="${text/"${BASH_REMATCH[1]}"/}"
+    done
+    SOURCE_NAME="$text"
+}
+
+# number_value N -> NUMBER_VALUE, read as base 10 (so 007 is 7, not octal).
+number_value() {
+    local digits="$1" sign=1
+    if [[ "$digits" == -* ]]; then
+        sign=-1
+        digits="${digits#-}"
+    fi
+    NUMBER_VALUE=$((sign * 10#$digits))
+}
+
+# solve_comparison OP ARGS SUBST: succeeds if the comparison holds.
+solve_comparison() {
+    local op="$1" subst="$3" left right a b
+    left="${2%%"$AST_AS"*}"
+    right="${2#*"$AST_AS"}"
+    walk "$left" "$subst"
+    a="$WALKED"
+    walk "$right" "$subst"
+    b="$WALKED"
+
+    source_name "$left"
+    local shown_left="$SOURCE_NAME"
+    source_name "$right"
+    local shown="$shown_left $op $SOURCE_NAME"
+    if is_variable "$a"; then
+        source_name "$a"
+        add_unique ERRORS "'$shown' needs a value for '$SOURCE_NAME' (put the goal that sets it earlier)"
+        return 1
+    fi
+    if is_variable "$b"; then
+        source_name "$b"
+        add_unique ERRORS "'$shown' needs a value for '$SOURCE_NAME' (put the goal that sets it earlier)"
+        return 1
+    fi
+
+    local numbers=0 result=1 x=0 y=0
+    if [[ "$a" =~ $NUMBER_PATTERN && "$b" =~ $NUMBER_PATTERN ]]; then
+        numbers=1
+        number_value "$a"
+        x="$NUMBER_VALUE"
+        number_value "$b"
+        y="$NUMBER_VALUE"
+    fi
+    case "$op" in
+        "==" | "!=")
+            if [[ "$numbers" -eq 1 ]]; then
+                ((x == y)) && result=0
+            else
+                [[ "$a" == "$b" ]] && result=0
+            fi
+            if [[ "$op" == "!=" ]]; then
+                result=$((1 - result))
+            fi
+            ;;
+        *)
+            if [[ "$numbers" -eq 0 ]]; then
+                add_unique ERRORS "'$a $op $b' can only compare numbers"
+                return 1
+            fi
+            case "$op" in
+                "<") ((x < y)) && result=0 ;;
+                ">") ((x > y)) && result=0 ;;
+                "<=") ((x <= y)) && result=0 ;;
+                ">=") ((x >= y)) && result=0 ;;
+            esac
+            ;;
+    esac
+
+    if [[ "$result" -ne 0 ]]; then
+        add_unique DEAD_ENDS "$a $op $b  (false)"
+        return 1
+    fi
+    return 0
+}
+
+# solve_not NAME ARGS SUBST LEVEL DEPTH: succeeds if NAME(ARGS) can't be
+# proved. Runs a separate search, saving and restoring the answer state.
+solve_not() {
+    local name="$1" subst="$3" level="$4" depth="$5" term
+    local -a terms
+    split_on "$AST_AS" "$2"
+    terms=("${SPLIT[@]}")
+    resolve_args "$2" "$subst"
+    local ground="$RESOLVED"
+    for term in "${terms[@]}"; do
+        walk "$term" "$subst"
+        if is_variable "$WALKED"; then
+            format_goal "!$name" "$2"
+            source_name "$FORMATTED"
+            local shown="$SOURCE_NAME"
+            source_name "$WALKED"
+            add_unique ERRORS "'$shown' needs a value for '$SOURCE_NAME' (put the goal that sets it earlier)"
+            return 1
+        fi
+    done
+
+    local -a saved_vars=("${QUERY_VARS[@]}") saved_solutions=("${SOLUTIONS[@]}")
+    local -a saved_proofs=("${SOLUTION_PROOFS[@]}") saved_dead=("${DEAD_ENDS[@]}")
+    local -a saved_undefined=("${UNDEFINED[@]}")
+    local saved_depth_hit="$DEPTH_LIMIT_HIT" found inner_depth_hit
+
+    QUERY_VARS=()
+    SOLUTIONS=()
+    SOLUTION_PROOFS=()
+    DEPTH_LIMIT_HIT=0
+    solve "$((level + 1))${AST_FS}${name}${AST_FS}${ground}" "$SUBST_SEP" $((depth + 1)) ""
+    found="${#SOLUTIONS[@]}"
+    inner_depth_hit="$DEPTH_LIMIT_HIT"
+
+    QUERY_VARS=("${saved_vars[@]}")
+    SOLUTIONS=("${saved_solutions[@]}")
+    SOLUTION_PROOFS=("${saved_proofs[@]}")
+    DEAD_ENDS=("${saved_dead[@]}")
+    UNDEFINED=("${saved_undefined[@]}")
+    DEPTH_LIMIT_HIT="$saved_depth_hit"
+
+    format_goal "!$name" "$ground"
+    if [[ "$found" -gt 0 ]]; then
+        add_unique DEAD_ENDS "$FORMATTED  (it can be proved)"
+        return 1
+    fi
+    if [[ "$inner_depth_hit" -eq 1 ]]; then
+        DEPTH_LIMIT_HIT=1
+        return 1
     fi
     return 0
 }
@@ -308,7 +457,7 @@ explain_failure() {
         echo "  No facts or rules define '$entry'"
     done
     [[ "${#DEAD_ENDS[@]}" -gt 0 ]] || return 0
-    echo "  Dead ends (no fact or rule matches):"
+    echo "  Dead ends (these goals could not be proved):"
     for entry in "${DEAD_ENDS[@]}"; do
         if [[ "$shown" -ge "$MAX_DEAD_ENDS" ]]; then
             echo "    ... and $((${#DEAD_ENDS[@]} - shown)) more"
@@ -320,15 +469,17 @@ explain_failure() {
 }
 
 kb_ask() {
-    local name="$1" args="$2" term var known i
+    local name="$1" args="$2" term var known i entry
 
-    echo "ask $name(${args//$AST_AS/, })"
+    format_goal "$name" "$args"
+    echo "ask $FORMATTED"
 
     QUERY_VARS=()
     SOLUTIONS=()
     SOLUTION_PROOFS=()
     DEAD_ENDS=()
     UNDEFINED=()
+    ERRORS=()
     DEPTH_LIMIT_HIT=0
     split_on "$AST_AS" "$args"
     for term in "${SPLIT[@]}"; do
@@ -354,6 +505,17 @@ kb_ask() {
         echo "  TRUE"
         if [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
             echo "  WARNING: stopped at depth limit ($SOVA_MAX_DEPTH); there may be more answers"
+        fi
+        for entry in "${ERRORS[@]}"; do
+            echo "  WARNING: $entry; there may be more answers"
+        done
+    elif [[ "${#ERRORS[@]}" -gt 0 ]]; then
+        echo "  UNKNOWN: some goals could not be checked"
+        for entry in "${ERRORS[@]}"; do
+            echo "  ERROR: $entry"
+        done
+        if [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
+            echo "  WARNING: also stopped at depth limit ($SOVA_MAX_DEPTH)"
         fi
     elif [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
         echo "  UNKNOWN: depth limit ($SOVA_MAX_DEPTH) reached; a rule may be calling itself forever"

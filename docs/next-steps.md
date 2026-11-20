@@ -78,11 +78,11 @@ This is the feature that sets Sova apart, so build it right after inference work
 
 ### 5. Language features that will be missed quickly
 
-- [ ] `NOT` (negation as failure)
-- [ ] Numbers and comparisons (`age(x, a) AND a > 18`)
-- [ ] Constants in rule heads (`rule likes("Sam", x):`). The parser currently rejects these.
-- [ ] Arity checking: warn when `parent/2` and `parent/3` both appear
-- [ ] An interactive REPL (`./sova -i file.sova` → `?- grandparent("Alex", who)`)
+- [x] `NOT` (negation as failure)
+- [x] Numbers and comparisons (`age(x, a) AND a > 18`), integers only since Bash arithmetic has no decimals
+- [x] Constants in rule heads (`rule likes("Sam", x):`)
+- [x] Arity checking: warn when `parent/2` and `parent/3` both appear
+- [x] An interactive REPL (`./sova -i file.sova` → `?- grandparent("Alex", who)`)
 
 ### 6. Learning environment (later)
 

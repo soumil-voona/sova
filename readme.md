@@ -76,7 +76,7 @@ Each answer comes with a proof tree: every goal is indented under the rule that 
 ```text
 ask grandparent("Sam", "Alex")
   FALSE
-  Dead ends (no fact or rule matches):
+  Dead ends (these goals could not be proved):
     parent("Jamie", "Alex")
 ```
 
@@ -149,6 +149,8 @@ The project intentionally uses Bash to explore how much of a programming languag
 - [x] Inference engine
 - [x] Query evaluation and backtracking
 - [x] Proof trees and explanations
+- [x] Numbers, comparisons, and `NOT`
+- [x] Interactive prompt
 - [ ] Pseudocode generation
 - [ ] Python translation
 - [ ] JavaScript translation
@@ -157,18 +159,45 @@ The project intentionally uses Bash to explore how much of a programming languag
 
 ## How Queries Are Answered
 
-- A quoted string (`"Alex"`) is a constant; a bare name (`who`, `x`) is a variable.
+- A quoted string (`"Alex"`) or a whole number (`17`, `-3`) is a constant; a bare name (`who`, `x`) is a variable. Numbers match by value, so `007` and `7` are the same.
 - Sova searches depth-first and backtracks, like Prolog. For each goal it tries facts first, then rules in source order.
 - A predicate can have several rules with the same name; each is an alternative (e.g. a base case and a recursive case).
 - `OR` binds loosest: `a AND b OR c` means `(a AND b) OR c`.
 - Each answer is shown once. Variables used only inside a rule are not shown.
+- Rule heads can contain constants: `rule likes("Sam", food):` only applies to Sam.
+- Comparisons (`a >= 18`, `x != "Bob"`) can appear in rule bodies. `<`, `>`, `<=`, `>=` compare numbers; `==` and `!=` compare numbers or text. Both sides need values first, so put the goal that sets a variable before the comparison that tests it.
+- `NOT p(x)` is true when `p(x)` can't be proved (negation as failure). Like comparisons, its variables need values first. Otherwise Sova says so and answers `UNKNOWN` instead of guessing.
+- Sova warns when a predicate is used with different numbers of arguments, such as `parent/2` in one place and `parent/3` in another.
 - The search stops at a depth of 100 steps, so a rule that calls itself forever gives `UNKNOWN` instead of hanging. Set `SOVA_MAX_DEPTH` to change the limit.
+
+## Interactive Prompt
+
+`./sova -i FILE` loads a program without running its `ask` lines, then lets you type questions and add facts or rules:
+
+```text
+?- parent(who, "Jamie")
+ask parent(who, "Jamie")
+  who = "Sam"
+    parent("Sam", "Jamie")  [fact]
+  TRUE
+?- fact parent("Jamie", "Kai")
+  Added.
+?- rule great(x, y):
+..      grandparent(x, z)
+..      AND parent(z, y)
+..
+  Added.
+?- quit
+```
+
+`ask` and a trailing `?` are optional. Type `facts` to see everything Sova knows, and `help` for the commands.
 
 ## Running and Testing
 
 ```bash
 ./sova examples/ancestor.sova          # answer the queries, with proofs
 ./sova --brief examples/ancestor.sova  # answers only
+./sova -i examples/family.sova         # interactive prompt (file optional)
 ./sova --tokens examples/family.sova   # show lexer tokens
 ./sova --ast examples/family.sova      # show the parsed AST
 ./sova --kb examples/family.sova       # show the knowledge base
