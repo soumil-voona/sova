@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo/sova-logo.png" alt="Sova logo: an owl with a proof tree on its chest" width="200">
+</p>
+
 # Sova
 
 **Think logically. Code independently.**

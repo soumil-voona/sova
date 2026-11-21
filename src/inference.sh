@@ -1008,10 +1008,10 @@ answer_bindings() {
     for var in "${QUERY_VARS[@]}"; do
         walk "$var" "$1"
         if is_variable "$WALKED"; then
-            say "$2" "$var = (any value)"
+            say "$2" "${C_CYAN}$var${C_RESET} = ${C_DIM}(any value)${C_RESET}"
         else
             term_text "$var" "$1"
-            say "$2" "$var = $TERM_TEXT"
+            say "$2" "${C_CYAN}$var${C_RESET} = ${C_BOLD}$TERM_TEXT${C_RESET}"
         fi
     done
 }
@@ -1023,7 +1023,7 @@ kb_ask() {
     local name="$1" args="$2" term var known i entry
 
     format_goal "$name" "$args"
-    echo "ask $FORMATTED"
+    echo "${C_BOLD}${C_BLUE}ask${C_RESET}${C_BOLD} $FORMATTED${C_RESET}"
 
     QUERY_VARS=()
     SOLUTIONS=()
@@ -1067,18 +1067,18 @@ kb_ask() {
     local count="${#SOLUTIONS[@]}"
     if [[ "$count" -gt 0 ]]; then
         if [[ "${#QUERY_VARS[@]}" -eq 0 ]]; then
-            echo "TRUE, because:"
+            echo "${C_BOLD}${C_GREEN}TRUE${C_RESET}, because:"
             explain_answer "${SOLUTION_PROOFS[0]}" "${SOLUTION_SUBSTS[0]}" 2 ""
         elif [[ "$count" -eq 1 ]]; then
-            echo "TRUE:"
+            echo "${C_BOLD}${C_GREEN}TRUE${C_RESET}:"
             answer_bindings "${SOLUTION_SUBSTS[0]}" 2
             echo
             explain_answer "${SOLUTION_PROOFS[0]}" "${SOLUTION_SUBSTS[0]}" 2 "Because "
         else
-            echo "TRUE, $count answers:"
+            echo "${C_BOLD}${C_GREEN}TRUE${C_RESET}, $count answers:"
             for ((i = 0; i < count; i++)); do
                 echo
-                echo "  Answer $((i + 1)):"
+                echo "  ${C_BOLD}Answer $((i + 1)):${C_RESET}"
                 answer_bindings "${SOLUTION_SUBSTS[i]}" 4
                 echo
                 explain_answer "${SOLUTION_PROOFS[i]}" "${SOLUTION_SUBSTS[i]}" 4 "Because "
@@ -1087,22 +1087,22 @@ kb_ask() {
         if [[ "$DEPTH_LIMIT_HIT" -eq 1 || "${#ERRORS[@]}" -gt 0 ]]; then
             echo
             if [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
-                echo "WARNING: stopped at depth limit ($SOVA_MAX_DEPTH); there may be more answers"
+                echo "${C_YELLOW}WARNING:${C_RESET} stopped at depth limit ($SOVA_MAX_DEPTH); there may be more answers"
             fi
             for entry in "${ERRORS[@]}"; do
-                echo "WARNING: $entry; there may be more answers"
+                echo "${C_YELLOW}WARNING:${C_RESET} $entry; there may be more answers"
             done
         fi
     elif [[ "${#ERRORS[@]}" -gt 0 ]]; then
-        echo "UNKNOWN: some goals could not be checked"
+        echo "${C_BOLD}${C_YELLOW}UNKNOWN${C_RESET}: some goals could not be checked"
         for entry in "${ERRORS[@]}"; do
-            echo "  ERROR: $entry"
+            echo "  ${C_RED}ERROR:${C_RESET} $entry"
         done
         if [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
-            echo "  WARNING: also stopped at depth limit ($SOVA_MAX_DEPTH)"
+            echo "  ${C_YELLOW}WARNING:${C_RESET} also stopped at depth limit ($SOVA_MAX_DEPTH)"
         fi
     elif [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
-        echo "UNKNOWN: depth limit ($SOVA_MAX_DEPTH) reached; a rule may be calling itself forever"
+        echo "${C_BOLD}${C_YELLOW}UNKNOWN${C_RESET}: depth limit ($SOVA_MAX_DEPTH) reached; a rule may be calling itself forever"
     else
         explain_false "$name" "$args"
     fi
@@ -1113,27 +1113,27 @@ kb_ask_brief() {
     local i entry
     if [[ "${#SOLUTIONS[@]}" -gt 0 ]]; then
         for ((i = 0; i < ${#SOLUTIONS[@]}; i++)); do
-            [[ -n "${SOLUTIONS[$i]}" ]] && echo "  ${SOLUTIONS[$i]}"
+            [[ -n "${SOLUTIONS[$i]}" ]] && echo "  ${C_BOLD}${SOLUTIONS[$i]}${C_RESET}"
         done
-        echo "  TRUE"
+        echo "  ${C_BOLD}${C_GREEN}TRUE${C_RESET}"
         if [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
-            echo "  WARNING: stopped at depth limit ($SOVA_MAX_DEPTH); there may be more answers"
+            echo "  ${C_YELLOW}WARNING:${C_RESET} stopped at depth limit ($SOVA_MAX_DEPTH); there may be more answers"
         fi
         for entry in "${ERRORS[@]}"; do
-            echo "  WARNING: $entry; there may be more answers"
+            echo "  ${C_YELLOW}WARNING:${C_RESET} $entry; there may be more answers"
         done
     elif [[ "${#ERRORS[@]}" -gt 0 ]]; then
-        echo "  UNKNOWN: some goals could not be checked"
+        echo "  ${C_BOLD}${C_YELLOW}UNKNOWN${C_RESET}: some goals could not be checked"
         for entry in "${ERRORS[@]}"; do
-            echo "  ERROR: $entry"
+            echo "  ${C_RED}ERROR:${C_RESET} $entry"
         done
         if [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
-            echo "  WARNING: also stopped at depth limit ($SOVA_MAX_DEPTH)"
+            echo "  ${C_YELLOW}WARNING:${C_RESET} also stopped at depth limit ($SOVA_MAX_DEPTH)"
         fi
     elif [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
-        echo "  UNKNOWN: depth limit ($SOVA_MAX_DEPTH) reached; a rule may be calling itself forever"
+        echo "  ${C_BOLD}${C_YELLOW}UNKNOWN${C_RESET}: depth limit ($SOVA_MAX_DEPTH) reached; a rule may be calling itself forever"
     else
-        echo "  FALSE"
+        echo "  ${C_BOLD}${C_RED}FALSE${C_RESET}"
     fi
 }
 

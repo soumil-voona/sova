@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Sova: "owl". The chest is a proof tree: the query (beak) resolves
+       through a rule into the facts that prove it. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#111a33"/>
+      <stop offset="1" stop-color="#0a1022"/>
+    </linearGradient>
+    <linearGradient id="owl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffcf5c"/>
+      <stop offset="1" stop-color="#f29b2e"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="200" fill="url(#bg)"/>
+
+  <!-- Owl silhouette with ear tufts -->
+  <path d="M 292 214 L 392 318 Q 512 290 632 318 L 732 214
+           L 742 540 Q 742 790 512 846 Q 282 790 282 540 Z"
+        fill="url(#owl)"/>
+
+  <!-- Facial disc -->
+  <path d="M 330 450 Q 330 350 420 350 Q 480 350 512 400 Q 544 350 604 350
+           Q 694 350 694 450 Q 694 540 604 548 Q 552 552 512 590
+           Q 472 552 420 548 Q 330 540 330 450 Z"
+        fill="#0f1730"/>
+
+  <!-- Eyes: unification rings -->
+  <g fill="none" stroke="#ffcf5c">
+    <circle cx="424" cy="452" r="64" stroke-width="10"/>
+    <circle cx="600" cy="452" r="64" stroke-width="10"/>
+  </g>
+  <circle cx="424" cy="452" r="26" fill="#ffcf5c"/>
+  <circle cx="600" cy="452" r="26" fill="#ffcf5c"/>
+  <circle cx="434" cy="442" r="8" fill="#0f1730"/>
+  <circle cx="610" cy="442" r="8" fill="#0f1730"/>
+
+  <!-- Beak = the query (root of the proof) -->
+  <path d="M 490 520 L 534 520 L 512 566 Z" fill="#ffcf5c"/>
+
+  <!-- Proof tree on the chest -->
+  <g stroke="#0f1730" stroke-width="12" stroke-linecap="round" fill="none">
+    <path d="M 512 600 L 512 648"/>
+    <path d="M 512 648 L 432 712"/>
+    <path d="M 512 648 L 592 712"/>
+    <path d="M 432 712 L 392 780"/>
+    <path d="M 432 712 L 466 780"/>
+    <path d="M 592 712 L 558 780"/>
+    <path d="M 592 712 L 632 780"/>
+  </g>
+  <g fill="#0f1730">
+    <circle cx="512" cy="648" r="20"/>
+    <circle cx="432" cy="712" r="17"/>
+    <circle cx="592" cy="712" r="17"/>
+  </g>
+  <!-- Leaves = facts (hollow: given, not derived) -->
+  <g fill="#ffcf5c" stroke="#0f1730" stroke-width="10">
+    <rect x="378" y="768" width="28" height="28" rx="6"/>
+    <rect x="452" y="768" width="28" height="28" rx="6"/>
+    <rect x="544" y="768" width="28" height="28" rx="6"/>
+    <rect x="618" y="768" width="28" height="28" rx="6"/>
+  </g>
+</svg>

@@ -379,7 +379,7 @@ explain_false() {
     is_text_builtin "$name" && has_rules=1
 
     if [[ "$has_facts" -eq 0 && "$has_rules" -eq 0 ]]; then
-        say 0 "FALSE:"
+        say 0 "${C_BOLD}${C_RED}FALSE${C_RESET}:"
         say 2 "Nothing defines $name: there are no facts or rules for it."
         return 0
     fi
@@ -390,7 +390,7 @@ explain_false() {
     done
 
     if [[ "${#rule_groups[@]}" -eq 0 ]]; then
-        say 0 "FALSE:"
+        say 0 "${C_BOLD}${C_RED}FALSE${C_RESET}:"
         local reason="Sova could not prove it."
         for ((i = 0; i < ${#FAIL_KEYS[@]}; i++)); do
             [[ "${FAIL_KEYS[i]}" == "top" ]] || continue
@@ -413,7 +413,7 @@ explain_false() {
         return 0
     fi
 
-    say 0 "FALSE, because:"
+    say 0 "${C_BOLD}${C_RED}FALSE${C_RESET}, because:"
     if [[ "$has_facts" -eq 1 ]]; then
         say 0 ""
         say 2 "No matching fact exists."
@@ -442,7 +442,7 @@ explain_tried() {
     local i="$1" indent="$2" src="${P_SRC[$1]}" alt
     alt="${src#A}"
     alt="${alt%%.*}"
-    say "$indent" "Tried:"
+    say "$indent" "${C_BOLD}Tried:${C_RESET}"
     say_rule $((indent + 2)) "$alt"
 
     explain_children "$i"
@@ -456,14 +456,14 @@ explain_tried() {
         fi
         k=$((k + 1))
         say 0 ""
-        say "$indent" "$ordinal:"
+        say "$indent" "${C_BOLD}$ordinal:${C_RESET}"
         before="${EXPLAIN_SUBST:0:${P_LEN[child]}}"
         explain_goal "$child" "$before" names
         say $((indent + 2)) "$GOAL_TEXT"
         say 0 ""
         explain_after "$child"
         if [[ "${P_SRC[child]}" == X* ]]; then
-            say $((indent + 2)) "FAILED:"
+            say $((indent + 2)) "${C_BOLD}${C_RED}FAILED:${C_RESET}"
             say $((indent + 4)) "${P_SRC[child]#X}"
         elif [[ "${P_SRC[child]}" == A* && "$AFTER" -ge "$P_COUNT" ]]; then
             # The failure is inside this goal's own rule.

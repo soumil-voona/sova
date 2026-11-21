@@ -41,6 +41,8 @@
 
 SOVA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=src/color.sh
+source "$SOVA_DIR/src/color.sh"
 # shellcheck source=src/lexer.sh
 source "$SOVA_DIR/src/lexer.sh"
 # shellcheck source=src/check_reqs.sh
@@ -104,7 +106,7 @@ while [[ "$1" == -* ]]; do
             [[ -n "$translate_target" ]] || usage
             shift
             ;;
-        *)                  echo "Unknown option: $1" >&2; usage ;;
+        *)                  echo "${E_RED}Unknown option:${E_RESET} $1" >&2; usage ;;
     esac
     shift
 done

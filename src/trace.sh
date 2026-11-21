@@ -52,7 +52,7 @@ trace_start() {
     TRACE_INNER=0
     TRACE_ANSWER_INDENT=2
     echo
-    echo "Trace:"
+    echo "${C_BOLD}Trace:${C_RESET}"
 }
 
 # trace_finish: the summary line, after the search.
@@ -61,9 +61,9 @@ trace_finish() {
     [[ "$count" -eq 1 ]] && answers="answer"
     [[ "$TRACE_GOALS" -eq 1 ]] && goals="goal"
     if [[ "$TRACE_CUT" -eq 1 ]]; then
-        say 2 "Search finished: $count $answers, $TRACE_GOALS $goals tried (the trace shows the first $SOVA_TRACE_LIMIT)."
+        say 2 "${C_DIM}Search finished: $count $answers, $TRACE_GOALS $goals tried (the trace shows the first $SOVA_TRACE_LIMIT).${C_RESET}"
     else
-        say 2 "Search finished: $count $answers, $TRACE_GOALS $goals tried."
+        say 2 "${C_DIM}Search finished: $count $answers, $TRACE_GOALS $goals tried.${C_RESET}"
     fi
     TRACE_ON=0
 }
@@ -91,12 +91,19 @@ trace_goal() {
         return 0
     fi
     trace_text "$1" "$2" "$3"
-    say $((2 + 4 * $4)) "[$TRACE_GOALS] $TRACE_TEXT"
+    say $((2 + 4 * $4)) "${C_CYAN}[$TRACE_GOALS]${C_RESET} $TRACE_TEXT"
 }
 
 # trace_line LEVEL TEXT: a line about the goal at LEVEL (under it).
 trace_line() {
-    say $((6 + 4 * $1)) "$2"
+    local text="$2"
+    if [[ -n "$C_RESET" ]]; then
+        case "$text" in
+            "✓ "*) text="${C_GREEN}✓${C_RESET} ${text#"✓ "}" ;;
+            "✗ "*) text="${C_RED}✗${C_RESET} ${text#"✗ "}" ;;
+        esac
+    fi
+    say $((6 + 4 * $1)) "$text"
 }
 
 # trace_bindings SUBST LENGTH -> TRACE_BINDS: the bindings SUBST has gained
@@ -211,7 +218,7 @@ trace_option() {
     local kind="${SPLIT[3]}" length="${SPLIT[4]}" level="${SPLIT[5]}" text="${SPLIT[6]}"
     local id
     if [[ "$position" -gt 1 ]]; then
-        say $((2 + 4 * level)) "↩ Back to [$number] $text: option $position of $count"
+        say $((2 + 4 * level)) "${C_YELLOW}↩ Back to [$number]${C_RESET} $text: ${C_DIM}option $position of $count${C_RESET}"
     fi
     trace_bindings "$2" "$length"
     case "$kind" in
@@ -265,7 +272,7 @@ trace_answer() {
     elif [[ "$count" -eq "$1" ]]; then
         say 2 "✓ Same answer again${text:+: $text} (shown once)"
     elif [[ -n "$text" ]]; then
-        say 2 "✓ Answer $count: $text"
+        say 2 "${C_BOLD}${C_GREEN}✓ Answer $count:${C_RESET} $text"
     else
         say 2 "✓ It's true."
     fi

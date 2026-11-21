@@ -96,7 +96,7 @@ check_explain_nothing() {
     CHECK_EXPLAINED=1
     if [[ "${#ERRORS[@]}" -gt 0 ]]; then
         for entry in "${ERRORS[@]}"; do
-            check_say "      Error: $entry"
+            check_say "      ${C_RED}Error:${C_RESET} $entry"
         done
         return 0
     fi
@@ -151,10 +151,10 @@ check_one() {
         yes)
             label="$goal is true"
             if [[ "$found" -gt 0 ]]; then
-                check_say "  ✓ $label"
+                check_say "  ${C_GREEN}✓${C_RESET} $label"
                 return 0
             fi
-            check_say "  ✗ $label"
+            check_say "  ${C_RED}✗${C_RESET} ${C_BOLD}$label${C_RESET}"
             check_explain_nothing "$name" "$args"
             return 1
             ;;
@@ -163,14 +163,14 @@ check_one() {
             # Before the predicate is written, "false" would pass for the
             # wrong reason, so it only counts once the predicate exists.
             if in_list "$name" "${CHECK_MISSING_PREDS[@]}"; then
-                check_say "  ✗ $label"
+                check_say "  ${C_RED}✗${C_RESET} ${C_BOLD}$label${C_RESET}"
                 return 1
             fi
             if [[ "$found" -eq 0 && "$unknown" -eq 0 ]]; then
-                check_say "  ✓ $label"
+                check_say "  ${C_GREEN}✓${C_RESET} $label"
                 return 0
             fi
-            check_say "  ✗ $label"
+            check_say "  ${C_RED}✗${C_RESET} ${C_BOLD}$label${C_RESET}"
             if [[ "$found" -gt 0 ]]; then
                 if [[ "$CHECK_QUIET" -ne 1 && "$CHECK_EXPLAINED" -eq 0 ]]; then
                     CHECK_EXPLAINED=1
@@ -196,10 +196,10 @@ check_one() {
                 in_list "${CHECK_GOT[i]}" "${CHECK_WANT[@]}" || extra+=("${CHECK_GOT[i]}")
             done
             if [[ "${#missing[@]}" -eq 0 && "${#extra[@]}" -eq 0 && "$unknown" -eq 0 ]]; then
-                check_say "  ✓ $label"
+                check_say "  ${C_GREEN}✓${C_RESET} $label"
                 return 0
             fi
-            check_say "  ✗ $label"
+            check_say "  ${C_RED}✗${C_RESET} ${C_BOLD}$label${C_RESET}"
             if [[ "$found" -eq 0 ]]; then
                 check_say "      Sova found no answers."
                 check_explain_nothing "$name" "$args"
@@ -278,17 +278,17 @@ check_file() {
 
     check_say ""
     if [[ "$CHECK_PASSED" -eq "$CHECK_TOTAL" ]]; then
-        check_say "All $CHECK_TOTAL checks pass."
+        check_say "${C_BOLD}${C_GREEN}All $CHECK_TOTAL checks pass.${C_RESET}"
         if pred_has_rules "$first_pred"; then
             check_say "See your rule written as code: ./sova --compare $first_pred $file"
         fi
         return 0
     fi
-    check_say "$CHECK_PASSED of $CHECK_TOTAL checks pass."
+    check_say "${C_BOLD}${C_YELLOW}$CHECK_PASSED of $CHECK_TOTAL checks pass.${C_RESET}"
     local hint
     for hint in "${hints[@]}"; do
         hint="${hint#\"}"
-        check_say "Hint: ${hint%\"}"
+        check_say "${C_CYAN}Hint:${C_RESET} ${hint%\"}"
     done
     return 1
 }
