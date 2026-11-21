@@ -156,9 +156,17 @@ check_output "A known goal that needs itself is false" "" \
     forever(x)
 ask forever("a")' \
 'ask forever("a")
-  FALSE
-  Dead ends (these goals could not be proved):
-    forever("a")  (would need itself to be proved first)'
+
+FALSE, because:
+
+  Tried:
+    forever(x) if forever(x)
+
+  First goal:
+    forever("a")
+
+    FAILED:
+      It would need itself to be proved first.'
 
 check_output "Cycles in a graph finish" "--brief" \
 'fact edge("a", "b")

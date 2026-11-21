@@ -1,0 +1,3 @@
+rule grandparent(g, c):
+    parent(g, m)
+    AND parent(m, c)

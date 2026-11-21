@@ -1,0 +1,29 @@
+# Exercise 7: NOT
+#
+# NOT p(x) is true when Sova can't prove p(x):
+#
+#     rule quiet(x):
+#         person(x)
+#         AND NOT talks(x)
+#
+# Like a comparison, NOT needs its values first: "NOT talks(x)" with x
+# unknown doesn't say who. So find x with another goal before the NOT.
+#
+# Your task: write can_join(x): x is a person who is not banned.
+
+fact person("Ana")
+fact person("Ben")
+fact person("Cy")
+fact banned("Ben")
+
+# Write your rule below this line.
+
+
+
+# --- Checks: run ./sova --check on this file. Don't change below here. ---
+hint "Two goals: first person(x), then NOT banned(x)."
+hint "If you put NOT first, Sova will say x has no value yet."
+expect can_join("Ana")
+expect NOT can_join("Ben")
+expect NOT can_join("Zed")
+expect can_join(who) gives "Ana", "Cy"

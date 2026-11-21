@@ -1,0 +1,33 @@
+# Exercise 5: Recursion
+#
+# A rule can use itself. An ancestor is a parent, or a parent of an
+# ancestor. That takes two rules with the same name:
+#
+#   - a base case, which needs nothing more than a fact
+#   - a recursive case, which takes one step and then uses the rule again
+#
+# Sova tries both rules, so writing them as two separate "rule" blocks is
+# like joining them with OR.
+#
+# Your task: write ancestor(a, d), which is true when a is a parent of d,
+# a grandparent of d, a great-grandparent, and so on.
+
+fact parent("Ada", "Ben")
+fact parent("Ben", "Cy")
+fact parent("Cy", "Di")
+fact parent("Fay", "Gus")
+
+# Write your rules below this line.
+
+
+
+# --- Checks: run ./sova --check on this file. Don't change below here. ---
+hint "First rule (base case): a is an ancestor of d if a is a parent of d."
+hint "Second rule: a is an ancestor of d if a is a parent of some m, AND m is an ancestor of d."
+hint "Put the parent goal before the ancestor goal, so each step gets closer to d."
+expect ancestor("Ada", "Ben")
+expect ancestor("Ada", "Di")
+expect NOT ancestor("Di", "Ada")
+expect NOT ancestor("Ada", "Gus")
+expect ancestor("Ada", who) gives "Ben", "Cy", "Di"
+expect ancestor(who, "Di") gives "Cy", "Ben", "Ada"

@@ -1,36 +1,102 @@
 ask member(who)
-  who = "Jo"
-    member("Jo")  [rule member]
-      age("Jo", 30)  [fact]
-      30 >= 18  [comparison]
-      NOT banned("Jo")  [not provable]
-  who = "Ana"
-    member("Ana")  [rule member]
-      age("Ana", 22)  [fact]
-      22 >= 18  [comparison]
-      NOT banned("Ana")  [not provable]
-  TRUE
+
+TRUE, 2 answers:
+
+  Answer 1:
+    who = "Jo"
+
+    Because member("Jo") is satisfied by:
+      member(x) if age(x, a) AND a >= 18 AND NOT banned(x)
+
+    Variable bindings:
+      x = "Jo"
+      a = 30
+
+    Proof:
+      age("Jo", 30) is a fact.
+      30 >= 18 is true.
+      NOT banned("Jo"): banned("Jo") can't be proved.
+
+  Answer 2:
+    who = "Ana"
+
+    Because member("Ana") is satisfied by:
+      member(x) if age(x, a) AND a >= 18 AND NOT banned(x)
+
+    Variable bindings:
+      x = "Ana"
+      a = 22
+
+    Proof:
+      age("Ana", 22) is a fact.
+      22 >= 18 is true.
+      NOT banned("Ana"): banned("Ana") can't be proved.
 
 ask member("Bob")
-  FALSE
-  Dead ends (these goals could not be proved):
-    NOT banned("Bob")  (it can be proved)
+
+FALSE, because:
+
+  Tried:
+    member(x) if age(x, a) AND a >= 18 AND NOT banned(x)
+
+  First goal:
+    age("Bob", a)
+
+    Matched:
+      a = 45
+
+  Second goal:
+    45 >= 18
+
+    True.
+
+  Third goal:
+    NOT banned("Bob")
+
+    FAILED:
+      banned("Bob") can be proved.
 
 ask can_bring("Ana", who)
+
+TRUE:
   who = "Jo"
-    can_bring("Ana", "Jo")  [rule can_bring]
-      friend("Ana", "Jo")  [fact]
-      member("Jo")  [rule member]
-        age("Jo", 30)  [fact]
-        30 >= 18  [comparison]
-        NOT banned("Jo")  [not provable]
-      "Ana" != "Jo"  [comparison]
-  TRUE
+
+  Because can_bring("Ana", "Jo") is satisfied by:
+    can_bring(x, guest) if friend(x, guest) AND member(guest) AND x != guest
+
+  Variable bindings:
+    x = "Ana"
+    guest = "Jo"
+
+  Proof:
+    friend("Ana", "Jo") is a fact.
+
+    member("Jo") is satisfied by:
+      member(x) if age(x, a) AND a >= 18 AND NOT banned(x)
+
+    Variable bindings:
+      x = "Jo"
+      a = 30
+
+    Proof:
+      age("Jo", 30) is a fact.
+      30 >= 18 is true.
+      NOT banned("Jo"): banned("Jo") can't be proved.
+
+    "Ana" != "Jo" is true.
 
 ask junior(who)
+
+TRUE:
   who = "Sam"
-    junior("Sam")  [rule junior]
-      age("Sam", 17)  [fact]
-      17 < 18  [comparison]
-  TRUE
+
+  Because junior("Sam") is satisfied by:
+    junior("Sam") if age("Sam", a) AND a < 18
+
+  Variable bindings:
+    a = 17
+
+  Proof:
+    age("Sam", 17) is a fact.
+    17 < 18 is true.
 

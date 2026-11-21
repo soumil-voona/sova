@@ -121,11 +121,21 @@ check_output "Built-ins in proofs" "" \
 "$TEXT
 ask greet(\"Sam\", m)" \
 'ask greet("Sam", m)
+
+TRUE:
   m = "Hello, Sam!"
-    greet("Sam", "Hello, Sam!")  [rule greet]
-      concat("Hello, ", "Sam", "Hello, Sam")  [built-in]
-      concat("Hello, Sam", "!", "Hello, Sam!")  [built-in]
-  TRUE'
+
+  Because greet("Sam", "Hello, Sam!") is satisfied by:
+    greet(name, message) if concat("Hello, ", name, start) AND concat(start, "!", message)
+
+  Variable bindings:
+    name = "Sam"
+    start = "Hello, Sam"
+    message = "Hello, Sam!"
+
+  Proof:
+    concat("Hello, ", "Sam", "Hello, Sam") is true (built-in).
+    concat("Hello, Sam", "!", "Hello, Sam!") is true (built-in).'
 
 check_output "A program's own concat replaces the built-in" "--brief" \
 'fact concat("a", "b", "custom")

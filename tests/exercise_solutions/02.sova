@@ -1,0 +1,2 @@
+rule child(c, p):
+    parent(p, c)

@@ -73,8 +73,8 @@ Add these examples as you go:
 This is the feature that sets Sova apart, so build it right after inference works.
 
 - [x] Have the solver record which fact or rule satisfied each goal, as a tree that travels alongside the bindings.
-- [x] Print it in the README's `Proof: … Therefore: …` format, indented by depth for nested rules.
-- [x] **Explain failures:** for a FALSE query, report the first goal that had no match ("no fact `parent("Jamie", y)` exists"). It's simple to implement and very useful for learners.
+- [x] Print it in a readable format, indented by depth for nested rules. (Replaced on 2026-11-20 by the explanation format: `TRUE, because:` with the rule used, its variable bindings, and the proof of each goal. See `src/explain.sh`.)
+- [x] **Explain failures** (now a goal-by-goal walk through each rule tried, with what matched and why the failing goal failed): for a FALSE query, report the first goal that had no match ("no fact `parent("Jamie", y)` exists"). It's simple to implement and very useful for learners.
 
 ### 5. Language features that will be missed quickly
 
@@ -105,7 +105,7 @@ Once proofs exist, these follow naturally from the rule AST:
 - [x] `translate grandparent to python`: `./sova --python TARGET FILE`, or `python` / `translate ... to python` at the prompt. Built from the same logic as the pseudocode, and tested by running the Python and comparing its answers with Sova's
 - [x] JavaScript target: `./sova --javascript TARGET FILE` (or `--js`), and `javascript` / `js` / `translate ... to javascript` at the prompt. Tested by running with Node and comparing with Sova's answers, using the same cases as Python
 - [x] Side-by-side paradigm comparisons: `./sova --compare TARGET FILE` shows logic, imperative Python, and functional Python (list comprehensions, also `--functional`), with line counts and a table of how the ideas map
-- [ ] Exercises
+- [x] Exercises: ten in `exercises/`, from facts to `count`/`collect`. `--check` explains failures (dead ends, proofs, missing and unexpected answers, hints), and `--exercises` and `--start` manage your copies. Every exercise has a reference solution in `tests/exercise_solutions/` that the tests check.
 
 ---
 

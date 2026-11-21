@@ -85,23 +85,61 @@ check_output "Proofs show what was gathered" "" \
 "$GATHER
 ask total_age(\"Ada\", t)" \
 'ask total_age("Ada", t)
+
+TRUE:
   t = 55
-    total_age("Ada", 55)  [rule total_age]
-      collect(a, kid_age("Ada", c, a), [30, 25])  [collect]
-      sum([30, 25], 55)  [rule sum]
-        sum([25], 25)  [rule sum]
-          sum([], 0)  [fact]
-          25 = 25 + 0  [calculation]
-        55 = 30 + 25  [calculation]
-  TRUE'
+
+  Because total_age("Ada", 55) is satisfied by:
+    total_age(p, t) if collect(a, kid_age(p, c, a), ages) AND sum(ages, t)
+
+  Variable bindings:
+    ages = [30, 25]
+    t = 55
+    p = "Ada"
+
+  Proof:
+    collect(a, kid_age("Ada", c, a), [30, 25]): collected 2 answers.
+
+    sum([30, 25], 55) is satisfied by:
+      sum([x | xs], t) if sum(xs, r) AND t = x + r
+
+    Variable bindings:
+      xs = [25]
+      r = 25
+      t = 55
+      x = 30
+
+    Proof:
+      sum([25], 25) is satisfied by:
+        sum([x | xs], t) if sum(xs, r) AND t = x + r
+
+      Variable bindings:
+        xs = []
+        r = 0
+        t = 25
+        x = 25
+
+      Proof:
+        sum([], 0) is a fact.
+        t = 25 + 0 = 25 (calculated).
+
+      t = 30 + 25 = 55 (calculated).'
 
 check_output "A wrong count is a dead end" "" \
 "$GATHER
 ask how_many(\"Ben\", 2)" \
 'ask how_many("Ben", 2)
-  FALSE
-  Dead ends (these goals could not be proved):
-    count(parent("Ben", c), 2)  (gives 1)'
+
+FALSE, because:
+
+  Tried:
+    how_many(p, n) if count(parent(p, c), n)
+
+  First goal:
+    count(parent("Ben", c), 2)
+
+    FAILED:
+      It counted 1 answer, not 2.'
 
 check_output "collect and count are shown as written" "--kb" \
 'rule r(p, k, n):
@@ -125,7 +163,16 @@ check_output "collect without a call inside is an ordinary call" "" \
     collect(c, 5, k)
 ask r(k)' \
 'ask r(k)
-  FALSE
-  No facts or rules define '"'"'collect'"'"''
+
+FALSE, because:
+
+  Tried:
+    r(k) if collect(c, 5, k)
+
+  First goal:
+    collect(c, 5, k)
+
+    FAILED:
+      Nothing defines collect.'
 
 finish_tests

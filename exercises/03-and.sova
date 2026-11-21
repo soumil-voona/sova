@@ -1,0 +1,34 @@
+# Exercise 3: AND
+#
+# A rule can need several things to be true at once. Put each goal on its
+# own line, joining them with AND:
+#
+#     rule sibling_of_parent(x, y):
+#         parent(p, y)
+#         AND sibling(p, x)
+#
+# A variable that appears in two goals (p here) must be the same thing in
+# both. That's how goals are connected.
+#
+# Your task: write grandparent(g, c), which is true when g is a parent of
+# someone who is a parent of c.
+
+fact parent("Ada", "Ben")
+fact parent("Ada", "Fay")
+fact parent("Ben", "Cy")
+fact parent("Ben", "Di")
+fact parent("Fay", "Eli")
+
+# Write your rule below this line.
+
+
+
+# --- Checks: run ./sova --check on this file. Don't change below here. ---
+hint "You need two parent goals: g is a parent of someone, and that someone is a parent of c."
+hint "Use a new variable for the person in the middle, for example m: parent(g, m) AND parent(m, c)."
+expect grandparent("Ada", "Cy")
+expect grandparent("Ada", "Eli")
+expect NOT grandparent("Ben", "Cy")
+expect NOT grandparent("Ada", "Ben")
+expect grandparent("Ada", who) gives "Cy", "Di", "Eli"
+expect grandparent(g, "Eli") gives "Ada"

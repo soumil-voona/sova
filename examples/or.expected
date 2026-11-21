@@ -1,25 +1,102 @@
 ask caregiver(who, "Jamie")
-  who = "Sam"
-    caregiver("Sam", "Jamie")  [rule caregiver, OR branch 1]
-      parent("Sam", "Jamie")  [fact]
-  who = "Riley"
-    caregiver("Riley", "Jamie")  [rule caregiver, OR branch 2]
-      guardian("Riley", "Jamie")  [fact]
-  TRUE
+
+TRUE, 2 answers:
+
+  Answer 1:
+    who = "Sam"
+
+    Because caregiver("Sam", "Jamie") is satisfied by:
+      caregiver(x, y) if parent(x, y) OR guardian(x, y)
+      (using: parent(x, y))
+
+    Variable bindings:
+      x = "Sam"
+      y = "Jamie"
+
+    Proof:
+      parent("Sam", "Jamie") is a fact.
+
+  Answer 2:
+    who = "Riley"
+
+    Because caregiver("Riley", "Jamie") is satisfied by:
+      caregiver(x, y) if parent(x, y) OR guardian(x, y)
+      (using: guardian(x, y))
+
+    Variable bindings:
+      x = "Riley"
+      y = "Jamie"
+
+    Proof:
+      guardian("Riley", "Jamie") is a fact.
 
 ask pet_of_family("Mochi", who)
-  who = "Sam"
-    pet_of_family("Mochi", "Sam")  [rule pet_of_family, OR branch 1]
-      owns("Jamie", "Mochi")  [fact]
-      caregiver("Sam", "Jamie")  [rule caregiver, OR branch 1]
-        parent("Sam", "Jamie")  [fact]
-  who = "Riley"
-    pet_of_family("Mochi", "Riley")  [rule pet_of_family, OR branch 1]
-      owns("Jamie", "Mochi")  [fact]
-      caregiver("Riley", "Jamie")  [rule caregiver, OR branch 2]
-        guardian("Riley", "Jamie")  [fact]
-  who = "Jamie"
-    pet_of_family("Mochi", "Jamie")  [rule pet_of_family, OR branch 2]
-      owns("Jamie", "Mochi")  [fact]
-  TRUE
+
+TRUE, 3 answers:
+
+  Answer 1:
+    who = "Sam"
+
+    Because pet_of_family("Mochi", "Sam") is satisfied by:
+      pet_of_family(pet, adult) if owns(kid, pet) AND caregiver(adult, kid) OR owns(adult, pet)
+      (using: owns(kid, pet) AND caregiver(adult, kid))
+
+    Variable bindings:
+      kid = "Jamie"
+      pet = "Mochi"
+      adult = "Sam"
+
+    Proof:
+      owns("Jamie", "Mochi") is a fact.
+
+      caregiver("Sam", "Jamie") is satisfied by:
+        caregiver(x, y) if parent(x, y) OR guardian(x, y)
+        (using: parent(x, y))
+
+      Variable bindings:
+        x = "Sam"
+        y = "Jamie"
+
+      Proof:
+        parent("Sam", "Jamie") is a fact.
+
+  Answer 2:
+    who = "Riley"
+
+    Because pet_of_family("Mochi", "Riley") is satisfied by:
+      pet_of_family(pet, adult) if owns(kid, pet) AND caregiver(adult, kid) OR owns(adult, pet)
+      (using: owns(kid, pet) AND caregiver(adult, kid))
+
+    Variable bindings:
+      kid = "Jamie"
+      pet = "Mochi"
+      adult = "Riley"
+
+    Proof:
+      owns("Jamie", "Mochi") is a fact.
+
+      caregiver("Riley", "Jamie") is satisfied by:
+        caregiver(x, y) if parent(x, y) OR guardian(x, y)
+        (using: guardian(x, y))
+
+      Variable bindings:
+        x = "Riley"
+        y = "Jamie"
+
+      Proof:
+        guardian("Riley", "Jamie") is a fact.
+
+  Answer 3:
+    who = "Jamie"
+
+    Because pet_of_family("Mochi", "Jamie") is satisfied by:
+      pet_of_family(pet, adult) if owns(kid, pet) AND caregiver(adult, kid) OR owns(adult, pet)
+      (using: owns(adult, pet))
+
+    Variable bindings:
+      adult = "Jamie"
+      pet = "Mochi"
+
+    Proof:
+      owns("Jamie", "Mochi") is a fact.
 

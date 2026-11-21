@@ -68,11 +68,19 @@ ask likes(who, "pizza")
 check_repl "Proofs are shown by default" "" "$FAMILY" \
 'grandparent("Alex", "Jamie")' \
 'ask grandparent("Alex", "Jamie")
+
+TRUE, because:
+  grandparent("Alex", "Jamie") is satisfied by:
+    grandparent(x, z) if parent(x, y) AND parent(y, z)
+
+  Variable bindings:
+    x = "Alex"
+    y = "Sam"
+    z = "Jamie"
+
   Proof:
-    grandparent("Alex", "Jamie")  [rule grandparent]
-      parent("Alex", "Sam")  [fact]
-      parent("Sam", "Jamie")  [fact]
-  TRUE'
+    parent("Alex", "Sam") is a fact.
+    parent("Sam", "Jamie") is a fact.'
 
 check_repl "New argument-count warnings appear once" "--brief" "$FAMILY" \
 'fact parent("a")

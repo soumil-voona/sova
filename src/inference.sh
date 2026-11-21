@@ -16,11 +16,17 @@
 #                 with $SUBST_SEP. Strings are copied on every call, so
 #                 backtracking needs no undo step: a failed branch just drops
 #                 its copy. (Bash 3.2 on macOS has no associative arrays.)
-# Proof:          one line per proved goal, joined by $PROOF_SEP, in the order
+# Proof:          one step per proved goal, joined by $PROOF_SEP, in the order
 #                 they were proved:
-#                 "<level> FS <name> FS <args> FS <F | A<KB_ALTS index>>"
-#                 Arguments keep their variables; they are filled in from the
-#                 final substitution once a solution is found.
+#                 "<level> FS <name> FS <args> FS <source> FS <bindings length>"
+#                 source is F<fact index>, A<KB_ALTS index>.<rename suffix>,
+#                 C (comparison), E (=), N (NOT), G (collect/count), or B
+#                 (built-in); a failed step (see record_failure) is X<reason>.
+#                 Arguments keep their variables. The bindings length is how
+#                 long the substitution was just before the step: bindings
+#                 are only ever added along a path, so the first that many
+#                 characters of the final substitution are the values known
+#                 at that point. src/explain.sh turns this into explanations.
 #
 # A predicate's clauses are tried facts first, then rules in source order.
 # Each time a rule (or a fact containing variables) is used, its variables are
@@ -47,15 +53,21 @@ CHAIN_ITEM=$'\x02'
 PROOF_SEP=$'\x1a'
 SOVA_MAX_DEPTH="${SOVA_MAX_DEPTH:-200}"
 SOVA_BRIEF="${SOVA_BRIEF:-0}"
-MAX_DEAD_ENDS=5
 
 RENAME_COUNTER=0
 QUERY_VARS=()
 SOLUTIONS=()
 SOLUTION_PROOFS=()
 SOLUTION_SUBSTS=()
-DEAD_ENDS=()
-UNDEFINED=()
+
+# Failures, for explaining FALSE answers (see record_failure).
+FAIL_RECORDING=0
+FAIL_KEYS=()
+FAIL_PATHS=()
+FAIL_PATH_SUBSTS=()
+FAIL_COUNTS=()
+FAIL_DEPTHS=()
+FAIL_REASON=""
 ERRORS=()
 DEPTH_LIMIT_HIT=0
 
@@ -218,47 +230,6 @@ rule_label() {
     return 0
 }
 
-# render_proof PROOF SUBST -> RENDERED: an indented tree, one goal per line.
-render_proof() {
-    local subst="$2" line level name args source indent out=""
-    local -a lines fields
-    split_on "$PROOF_SEP" "$1"
-    lines=("${SPLIT[@]}")
-    for line in "${lines[@]}"; do
-        split_on "$AST_FS" "$line"
-        fields=("${SPLIT[@]}")
-        level="${fields[0]}"
-        name="${fields[1]}"
-        args="${fields[2]}"
-        source="${fields[3]}"
-
-        # In a collect or count, the template and the inner question's
-        # variables take a value per answer, so show their names.
-        [[ "$source" == "G" ]] && RESOLVE_KEEP_NAMES=1
-        resolve_args "$args" "$subst"
-        RESOLVE_KEEP_NAMES=0
-        format_goal "$name" "$RESOLVED"
-        case "$source" in
-            F) LABEL="fact" ;;
-            C) LABEL="comparison" ;;
-            E)
-                if [[ "$args" == *"$EXPR_SEP"* ]]; then
-                    LABEL="calculation"
-                else
-                    LABEL="match"
-                fi
-                ;;
-            N) LABEL="not provable" ;;
-            G) LABEL="${name%%:*}" ;;
-            B) LABEL="built-in" ;;
-            *) rule_label "${source#A}" ;;
-        esac
-        printf -v indent '%*s' $((4 + 2 * level)) ''
-        out+="${indent}${FORMATTED}  [${LABEL}]"$'\n'
-    done
-    RENDERED="${out%$'\n'}"
-}
-
 # Saves the query variables' values (and the proof) as one answer,
 # skipping answers already found.
 record_solution() {
@@ -278,12 +249,7 @@ record_solution() {
     done
     SOLUTIONS+=("$answer")
     SOLUTION_SUBSTS+=("$subst")
-    if [[ "$SOVA_BRIEF" -eq 1 ]]; then
-        SOLUTION_PROOFS+=("")
-    else
-        render_proof "$proof" "$subst"
-        SOLUTION_PROOFS+=("$RENDERED")
-    fi
+    SOLUTION_PROOFS+=("$proof")
 }
 
 # The search keeps pending states on an explicit stack instead of calling
@@ -304,6 +270,40 @@ push_state() {
     ST_DEPTH[ST_TOP]="$3"
     ST_PROOF[ST_TOP]="$4"
     ST_TOP=$((ST_TOP + 1))
+}
+
+# record_failure PROOF STEP REASON SUBST: remembers a dead end, for
+# explaining a FALSE answer. The path is the proof so far plus the failed
+# step (source X<reason>). Paths are grouped by the rule the question itself
+# was tried with; each group keeps the path that got furthest, and counts
+# the others.
+record_failure() {
+    [[ "$FAIL_RECORDING" -eq 1 ]] || return 0
+    local depth="$5" key="top" first i
+    # The group is the rule the question itself was tried with: the source
+    # of the first step, if there is one.
+    first="${1%%"$PROOF_SEP"*}"
+    if [[ -n "$1" ]]; then
+        split_on "$AST_FS" "$first"
+        [[ "${SPLIT[3]}" == A* ]] && key="${SPLIT[3]%%.*}"
+    fi
+    # The path's length is its depth (one step per state), so only build
+    # the path string when it gets further than the one kept so far.
+    for ((i = 0; i < ${#FAIL_KEYS[@]}; i++)); do
+        [[ "${FAIL_KEYS[i]}" == "$key" ]] || continue
+        FAIL_COUNTS[i]=$((FAIL_COUNTS[i] + 1))
+        if [[ "$depth" -gt "${FAIL_DEPTHS[i]}" ]]; then
+            FAIL_PATHS[i]="${1}${2}X${3}${AST_FS}${#4}"
+            FAIL_PATH_SUBSTS[i]="$4"
+            FAIL_DEPTHS[i]="$depth"
+        fi
+        return 0
+    done
+    FAIL_KEYS+=("$key")
+    FAIL_PATHS+=("${1}${2}X${3}${AST_FS}${#4}")
+    FAIL_PATH_SUBSTS+=("$4")
+    FAIL_COUNTS+=(1)
+    FAIL_DEPTHS+=("$depth")
 }
 
 # run_search GOALS SUBST DEPTH PROOF: proves every goal in GOALS and records
@@ -350,26 +350,34 @@ run_search() {
             continue
         fi
         proof="${proof:+${proof}${PROOF_SEP}}"
+        local tail="${AST_FS}${#subst}"
+        FAIL_REASON=""
 
         if is_comparison "$name"; then
             if solve_comparison "$name" "$args" "$subst"; then
                 if [[ "$name" == "=" ]]; then
-                    push_state "$rest" "$COMPARE_SUBST" $((depth + 1)) "${proof}${step}E"
+                    push_state "$rest" "$COMPARE_SUBST" $((depth + 1)) "${proof}${step}E${tail}"
                 else
-                    push_state "$rest" "$COMPARE_SUBST" $((depth + 1)) "${proof}${step}C"
+                    push_state "$rest" "$COMPARE_SUBST" $((depth + 1)) "${proof}${step}C${tail}"
                 fi
+            elif [[ -n "$FAIL_REASON" ]]; then
+                record_failure "$proof" "$step" "$FAIL_REASON" "$subst" "$depth"
             fi
             continue
         fi
         if [[ "$name" == "!"* ]]; then
             if solve_not "${name#!}" "$args" "$subst" "$level" "$depth"; then
-                push_state "$rest" "$subst" $((depth + 1)) "${proof}${step}N"
+                push_state "$rest" "$subst" $((depth + 1)) "${proof}${step}N${tail}"
+            elif [[ -n "$FAIL_REASON" ]]; then
+                record_failure "$proof" "$step" "$FAIL_REASON" "$subst" "$depth"
             fi
             continue
         fi
         if is_gather "$name"; then
             if solve_gather "$name" "$args" "$subst" "$level" "$depth" "$rest"; then
-                push_state "$rest" "$GATHER_SUBST" $((depth + 1)) "${proof}${step}G"
+                push_state "$rest" "$GATHER_SUBST" $((depth + 1)) "${proof}${step}G${tail}"
+            elif [[ -n "$FAIL_REASON" ]]; then
+                record_failure "$proof" "$step" "$FAIL_REASON" "$subst" "$depth"
             fi
             continue
         fi
@@ -377,8 +385,11 @@ run_search() {
             if solve_text_builtin "$name" "$args" "$subst"; then
                 # shellcheck disable=SC2153 # set by solve_text_builtin
                 local -a builtin_substs=("${BUILTIN_SUBSTS[@]}")
+                if [[ "${#builtin_substs[@]}" -eq 0 ]]; then
+                    record_failure "$proof" "$step" "It is false." "$subst" "$depth"
+                fi
                 for ((i = ${#builtin_substs[@]} - 1; i >= 0; i--)); do
-                    push_state "$rest" "${builtin_substs[i]}" $((depth + 1)) "${proof}${step}B"
+                    push_state "$rest" "${builtin_substs[i]}" $((depth + 1)) "${proof}${step}B${tail}"
                 done
             fi
             continue
@@ -422,7 +433,7 @@ run_search() {
                 matched=1
                 next_goals+=("$rest")
                 next_subst+=("$UNIFY_SUBST")
-                next_proof+=("${proof}${step}F")
+                next_proof+=("${proof}${step}F${id}${tail}")
             fi
         done
 
@@ -430,6 +441,7 @@ run_search() {
         ref="KBA_${name}[@]"
         alt_ids=("${!ref}")
         [[ "${#alt_ids[@]}" -gt 0 ]] && defined=1
+        local rule_count="${#alt_ids[@]}" fact_count="${#fact_ids[@]}" pruned=0
 
         # Loop check: a fully known goal that is already being proved further
         # up this chain of rule calls can't gain anything from being proved
@@ -454,8 +466,7 @@ run_search() {
                 if [[ "$chain" == *"${CHAIN_ITEM}${key}${CHAIN_ITEM}"* ]]; then
                     alt_ids=()
                     matched=1
-                    format_goal "$name" "$RESOLVED"
-                    add_unique DEAD_ENDS "$FORMATTED  (would need itself to be proved first)"
+                    pruned=1
                     key=""
                 fi
             fi
@@ -481,16 +492,22 @@ run_search() {
             body="$RENAMED_GOALS"
             next_goals+=("${body}${rest:+${GOAL_SEP}${rest}}")
             next_subst+=("$UNIFY_SUBST")
-            next_proof+=("${proof}${step}A${alt}")
+            next_proof+=("${proof}${step}A${alt}.${suffix}${tail}")
         done
 
         # Remember why this branch failed, for explaining FALSE answers.
         if [[ "$defined" -eq 0 ]]; then
-            add_unique UNDEFINED "$name"
+            record_failure "$proof" "$step" "Nothing defines $name." "$subst" "$depth"
         elif [[ "$matched" -eq 0 ]]; then
-            resolve_args "$args" "$subst"
-            format_goal "$name" "$RESOLVED"
-            add_unique DEAD_ENDS "$FORMATTED"
+            if [[ "$rule_count" -eq 0 ]]; then
+                record_failure "$proof" "$step" "No matching fact exists." "$subst" "$depth"
+            elif [[ "$fact_count" -eq 0 ]]; then
+                record_failure "$proof" "$step" "No rule for $name matches it." "$subst" "$depth"
+            else
+                record_failure "$proof" "$step" "No matching fact or rule exists." "$subst" "$depth"
+            fi
+        elif [[ "$pruned" -eq 1 && "${#next_goals[@]}" -eq 0 ]]; then
+            record_failure "$proof" "$step" "It would need itself to be proved first." "$subst" "$depth"
         fi
 
         for ((i = ${#next_goals[@]} - 1; i >= 0; i--)); do
@@ -585,10 +602,28 @@ solve_comparison() {
             COMPARE_SUBST="$UNIFY_SUBST"
             return 0
         fi
+        # Show unknowns by name: "[] doesn't match [h | t]."
+        # shellcheck disable=SC2034 # read by term_text (src/terms.sh)
+        TT_KEEP_NAMES=1
         term_text "$a" "$subst"
         a="$TERM_TEXT"
         term_text "$b" "$subst"
-        add_unique DEAD_ENDS "$a = $TERM_TEXT  (false)"
+        b="$TERM_TEXT"
+        # shellcheck disable=SC2034 # read by term_text (src/terms.sh)
+        TT_KEEP_NAMES=0
+        # Say where a calculated value came from: "4 * 2 is 8, not 10."
+        local left_side="${args%%"$AST_AS"*}" right_side="${args#*"$AST_AS"}"
+        if is_expression "$left_side"; then
+            resolve_args "$left_side" "$subst"
+            expr_pretty "$RESOLVED"
+            FAIL_REASON="$PRETTY is $a, not $b."
+        elif is_expression "$right_side"; then
+            resolve_args "$right_side" "$subst"
+            expr_pretty "$RESOLVED"
+            FAIL_REASON="$PRETTY is $b, not $a."
+        else
+            FAIL_REASON="$a doesn't match $b."
+        fi
         return 1
     elif [[ "$a_unbound" -eq 1 || "$b_unbound" -eq 1 ]]; then
         if [[ "$a_unbound" -eq 1 ]]; then
@@ -648,7 +683,7 @@ solve_comparison() {
     esac
 
     if [[ "$result" -ne 0 ]]; then
-        add_unique DEAD_ENDS "$a $op $b  (false)"
+        FAIL_REASON="$a $op $b is false."
         return 1
     fi
     return 0
@@ -712,9 +747,10 @@ solve_gather() {
     done
 
     local -a saved_vars=("${QUERY_VARS[@]}") saved_solutions=("${SOLUTIONS[@]}")
-    local -a saved_proofs=("${SOLUTION_PROOFS[@]}") saved_dead=("${DEAD_ENDS[@]}")
-    local -a saved_undefined=("${UNDEFINED[@]}") saved_substs=("${SOLUTION_SUBSTS[@]}")
+    local -a saved_proofs=("${SOLUTION_PROOFS[@]}") saved_substs=("${SOLUTION_SUBSTS[@]}")
     local saved_depth_hit="$DEPTH_LIMIT_HIT" saved_brief="$SOVA_BRIEF"
+    local saved_recording="$FAIL_RECORDING"
+    FAIL_RECORDING=0
 
     # The answers are told apart by the inner question's variables that
     # have no value yet (as when it is asked on its own).
@@ -741,10 +777,9 @@ solve_gather() {
     SOLUTIONS=("${saved_solutions[@]}")
     SOLUTION_PROOFS=("${saved_proofs[@]}")
     SOLUTION_SUBSTS=("${saved_substs[@]}")
-    DEAD_ENDS=("${saved_dead[@]}")
-    UNDEFINED=("${saved_undefined[@]}")
     DEPTH_LIMIT_HIT="$saved_depth_hit"
     SOVA_BRIEF="$saved_brief"
+    FAIL_RECORDING="$saved_recording"
 
     if [[ "$inner_depth_hit" -eq 1 ]]; then
         DEPTH_LIMIT_HIT=1
@@ -771,7 +806,17 @@ solve_gather() {
     RESOLVE_KEEP_NAMES=0
     format_goal "$name" "$RESOLVED"
     term_text "$value"
-    add_unique DEAD_ENDS "$FORMATTED  (gives $TERM_TEXT)"
+    local got="$TERM_TEXT"
+    term_text "$result" "$subst"
+    if [[ "$kind" == "count" ]]; then
+        if [[ "$value" -eq 1 ]]; then
+            FAIL_REASON="It counted 1 answer, not $TERM_TEXT."
+        else
+            FAIL_REASON="It counted $value answers, not $TERM_TEXT."
+        fi
+    else
+        FAIL_REASON="It collected $got, which doesn't match $TERM_TEXT."
+    fi
     return 1
 }
 
@@ -835,13 +880,15 @@ solve_not() {
     done
 
     local -a saved_vars=("${QUERY_VARS[@]}") saved_solutions=("${SOLUTIONS[@]}")
-    local -a saved_proofs=("${SOLUTION_PROOFS[@]}") saved_dead=("${DEAD_ENDS[@]}")
-    local -a saved_undefined=("${UNDEFINED[@]}")
+    local -a saved_proofs=("${SOLUTION_PROOFS[@]}") saved_substs=("${SOLUTION_SUBSTS[@]}")
     local saved_depth_hit="$DEPTH_LIMIT_HIT" found inner_depth_hit
+    local saved_recording="$FAIL_RECORDING"
+    FAIL_RECORDING=0
 
     QUERY_VARS=()
     SOLUTIONS=()
     SOLUTION_PROOFS=()
+    SOLUTION_SUBSTS=()
     DEPTH_LIMIT_HIT=0
     # The inner search starts from the current bindings, so it sees the
     # values the arguments have (all known, checked above).
@@ -852,14 +899,15 @@ solve_not() {
     QUERY_VARS=("${saved_vars[@]}")
     SOLUTIONS=("${saved_solutions[@]}")
     SOLUTION_PROOFS=("${saved_proofs[@]}")
-    DEAD_ENDS=("${saved_dead[@]}")
-    UNDEFINED=("${saved_undefined[@]}")
+    SOLUTION_SUBSTS=("${saved_substs[@]}")
     DEPTH_LIMIT_HIT="$saved_depth_hit"
+    FAIL_RECORDING="$saved_recording"
 
     resolve_args "$2" "$subst"
     format_goal "!$name" "$RESOLVED"
     if [[ "$found" -gt 0 ]]; then
-        add_unique DEAD_ENDS "$FORMATTED  (it can be proved)"
+        format_goal "$name" "$RESOLVED"
+        FAIL_REASON="$FORMATTED can be proved."
         return 1
     fi
     if [[ "$inner_depth_hit" -eq 1 ]]; then
@@ -869,24 +917,23 @@ solve_not() {
     return 0
 }
 
-# Prints why a query failed: undefined predicates, then goals nothing matched.
-explain_failure() {
-    local entry shown=0
-    for entry in "${UNDEFINED[@]}"; do
-        echo "  No facts or rules define '$entry'"
-    done
-    [[ "${#DEAD_ENDS[@]}" -gt 0 ]] || return 0
-    echo "  Dead ends (these goals could not be proved):"
-    for entry in "${DEAD_ENDS[@]}"; do
-        if [[ "$shown" -ge "$MAX_DEAD_ENDS" ]]; then
-            echo "    ... and $((${#DEAD_ENDS[@]} - shown)) more"
-            break
+# answer_bindings SUBST INDENT: one line per question variable, "x = value".
+answer_bindings() {
+    local var
+    for var in "${QUERY_VARS[@]}"; do
+        walk "$var" "$1"
+        if is_variable "$WALKED"; then
+            say "$2" "$var = (any value)"
+        else
+            term_text "$var" "$1"
+            say "$2" "$var = $TERM_TEXT"
         fi
-        echo "    $entry"
-        shown=$((shown + 1))
     done
 }
 
+# kb_ask NAME ARGS: answers one question. With SOVA_BRIEF=1 it prints the
+# answers only; otherwise each answer comes with an explanation of why it
+# is true, and a FALSE with why nothing could be proved (src/explain.sh).
 kb_ask() {
     local name="$1" args="$2" term var known i entry
 
@@ -896,10 +943,16 @@ kb_ask() {
     QUERY_VARS=()
     SOLUTIONS=()
     SOLUTION_PROOFS=()
-    DEAD_ENDS=()
-    UNDEFINED=()
+    SOLUTION_SUBSTS=()
     ERRORS=()
     DEPTH_LIMIT_HIT=0
+    FAIL_KEYS=()
+    FAIL_PATHS=()
+    FAIL_PATH_SUBSTS=()
+    FAIL_COUNTS=()
+    FAIL_DEPTHS=()
+    FAIL_RECORDING=1
+    [[ "$SOVA_BRIEF" -eq 1 ]] && FAIL_RECORDING=0
     split_on "$AST_AS" "$args"
     TERM_VARS=()
     for term in "${SPLIT[@]}"; do
@@ -914,15 +967,64 @@ kb_ask() {
     done
 
     run_search "0${AST_FS}${name}${AST_FS}${args}" "$SUBST_SEP" 0 ""
+    FAIL_RECORDING=0
 
+    if [[ "$SOVA_BRIEF" -eq 1 ]]; then
+        kb_ask_brief
+        return 0
+    fi
+
+    echo
+    local count="${#SOLUTIONS[@]}"
+    if [[ "$count" -gt 0 ]]; then
+        if [[ "${#QUERY_VARS[@]}" -eq 0 ]]; then
+            echo "TRUE, because:"
+            explain_answer "${SOLUTION_PROOFS[0]}" "${SOLUTION_SUBSTS[0]}" 2 ""
+        elif [[ "$count" -eq 1 ]]; then
+            echo "TRUE:"
+            answer_bindings "${SOLUTION_SUBSTS[0]}" 2
+            echo
+            explain_answer "${SOLUTION_PROOFS[0]}" "${SOLUTION_SUBSTS[0]}" 2 "Because "
+        else
+            echo "TRUE, $count answers:"
+            for ((i = 0; i < count; i++)); do
+                echo
+                echo "  Answer $((i + 1)):"
+                answer_bindings "${SOLUTION_SUBSTS[i]}" 4
+                echo
+                explain_answer "${SOLUTION_PROOFS[i]}" "${SOLUTION_SUBSTS[i]}" 4 "Because "
+            done
+        fi
+        if [[ "$DEPTH_LIMIT_HIT" -eq 1 || "${#ERRORS[@]}" -gt 0 ]]; then
+            echo
+            if [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
+                echo "WARNING: stopped at depth limit ($SOVA_MAX_DEPTH); there may be more answers"
+            fi
+            for entry in "${ERRORS[@]}"; do
+                echo "WARNING: $entry; there may be more answers"
+            done
+        fi
+    elif [[ "${#ERRORS[@]}" -gt 0 ]]; then
+        echo "UNKNOWN: some goals could not be checked"
+        for entry in "${ERRORS[@]}"; do
+            echo "  ERROR: $entry"
+        done
+        if [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
+            echo "  WARNING: also stopped at depth limit ($SOVA_MAX_DEPTH)"
+        fi
+    elif [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
+        echo "UNKNOWN: depth limit ($SOVA_MAX_DEPTH) reached; a rule may be calling itself forever"
+    else
+        explain_false "$name" "$args"
+    fi
+}
+
+# The --brief form: answers, then TRUE, FALSE, or UNKNOWN.
+kb_ask_brief() {
+    local i entry
     if [[ "${#SOLUTIONS[@]}" -gt 0 ]]; then
         for ((i = 0; i < ${#SOLUTIONS[@]}; i++)); do
-            if [[ -n "${SOLUTIONS[$i]}" ]]; then
-                echo "  ${SOLUTIONS[$i]}"
-            elif [[ "$SOVA_BRIEF" -ne 1 ]]; then
-                echo "  Proof:"
-            fi
-            [[ "$SOVA_BRIEF" -eq 1 ]] || echo "${SOLUTION_PROOFS[$i]}"
+            [[ -n "${SOLUTIONS[$i]}" ]] && echo "  ${SOLUTIONS[$i]}"
         done
         echo "  TRUE"
         if [[ "$DEPTH_LIMIT_HIT" -eq 1 ]]; then
@@ -943,7 +1045,6 @@ kb_ask() {
         echo "  UNKNOWN: depth limit ($SOVA_MAX_DEPTH) reached; a rule may be calling itself forever"
     else
         echo "  FALSE"
-        [[ "$SOVA_BRIEF" -eq 1 ]] || explain_failure
     fi
 }
 

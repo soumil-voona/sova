@@ -6,6 +6,7 @@
 #        ./sova --pseudocode TARGET FILE
 #        ./sova --python | --functional | --javascript TARGET FILE
 #        ./sova --compare TARGET FILE
+#        ./sova --exercises | --start N | --check FILE
 #        ./sova --tokens | --ast | --kb FILE
 #
 #   (no flag)  answer each ask, with a proof for every answer and an
@@ -26,6 +27,11 @@
 #   --compare TARGET
 #              TARGET written three ways (logic, imperative, functional)
 #              with a table of how the ideas map between them
+#   --exercises
+#              list the exercises and how far your copies have got
+#   --start N  copy exercise N into my-exercises/ to work on
+#   --check FILE
+#              run FILE's expect lines and explain any that fail
 #   --tokens   show lexer tokens
 #   --ast      show the parsed AST
 #   --kb       show the knowledge base
@@ -42,17 +48,23 @@ source "$SOVA_DIR/src/parser.sh"
 source "$SOVA_DIR/src/knowledge_base.sh"
 # shellcheck source=src/inference.sh
 source "$SOVA_DIR/src/inference.sh"
+# shellcheck source=src/explain.sh
+source "$SOVA_DIR/src/explain.sh"
 # shellcheck source=src/builtins.sh
 source "$SOVA_DIR/src/builtins.sh"
 # shellcheck source=src/pseudocode.sh
 source "$SOVA_DIR/src/pseudocode.sh"
 # shellcheck source=src/compare.sh
 source "$SOVA_DIR/src/compare.sh"
+# shellcheck source=src/check.sh
+source "$SOVA_DIR/src/check.sh"
+# shellcheck source=src/exercises.sh
+source "$SOVA_DIR/src/exercises.sh"
 # shellcheck source=src/repl.sh
 source "$SOVA_DIR/src/repl.sh"
 
 usage() {
-    sed -n '4,9p' "${BASH_SOURCE[0]}" | sed 's/^# //' >&2
+    sed -n '4,10p' "${BASH_SOURCE[0]}" | sed 's/^# //' >&2
     exit 1
 }
 
@@ -65,6 +77,14 @@ while [[ "$1" == -* ]]; do
         --kb)               mode="kb" ;;
         --brief)            SOVA_BRIEF=1 ;;
         -i | --interactive) mode="repl" ;;
+        --check)            mode="check" ;;
+        --exercises)        mode="exercises" ;;
+        --start)
+            mode="start"
+            start_number="$2"
+            [[ -n "$start_number" ]] || usage
+            shift
+            ;;
         --pseudocode | --python | --functional | --javascript | --js | --compare)
             mode="translate"
             case "$1" in
@@ -85,6 +105,15 @@ done
 
 file_path="$1"
 
+if [[ "$mode" == "exercises" ]]; then
+    list_exercises
+    exit $?
+fi
+if [[ "$mode" == "start" ]]; then
+    start_exercise "$start_number"
+    exit $?
+fi
+
 if [[ "$mode" == "repl" ]]; then
     if [[ -n "$file_path" ]]; then
         check_reqs "$file_path" || exit 1
@@ -103,6 +132,10 @@ fi
 parse_program "$file_path" || exit 1
 
 case "$mode" in
+    check)
+        check_file "$file_path"
+        exit $?
+        ;;
     ast)
         print_ast
         ;;

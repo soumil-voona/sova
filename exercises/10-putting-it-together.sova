@@ -1,0 +1,36 @@
+# Exercise 10: Putting it together
+#
+# count and collect look at every answer to a question:
+#
+#     count(likes(who, "pizza"), n)        n is how many answers there are
+#     collect(who, likes(who, "pizza"), l) l is the list of who for each one
+#
+# Your tasks:
+#   1. class_size(c, n): n is the number of students taking class c.
+#   2. class_list(c, l): l is the list of students taking class c.
+#   3. busy_class(c): class c has 3 or more students.
+#      (Give c a value before counting: start with takes(someone, c).)
+
+fact takes("Ana", "math")
+fact takes("Ben", "math")
+fact takes("Cy", "math")
+fact takes("Ana", "art")
+fact takes("Di", "art")
+fact takes("Eli", "music")
+
+# Write your rules below this line.
+
+
+
+# --- Checks: run ./sova --check on this file. Don't change below here. ---
+hint "class_size: count(takes(s, c), n)"
+hint "class_list: collect(s, takes(s, c), l)"
+hint "busy_class: takes(someone, c) AND class_size(c, n) AND n >= 3"
+expect class_size("math", 3)
+expect class_size("art", n) gives 2
+expect class_size("music", n) gives 1
+expect class_list("art", l) gives ["Ana", "Di"]
+expect class_list("math", l) gives ["Ana", "Ben", "Cy"]
+expect busy_class("math")
+expect NOT busy_class("art")
+expect busy_class(c) gives "math"

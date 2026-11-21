@@ -1,22 +1,33 @@
 ask grandparent("Alex", "Jamie")
+
+TRUE, because:
+  grandparent("Alex", "Jamie") is satisfied by:
+    grandparent(x, z) if parent(x, y) AND parent(y, z)
+
+  Variable bindings:
+    x = "Alex"
+    y = "Sam"
+    z = "Jamie"
+
   Proof:
-    grandparent("Alex", "Jamie")  [rule grandparent]
-      parent("Alex", "Sam")  [fact]
-      parent("Sam", "Jamie")  [fact]
-  TRUE
+    parent("Alex", "Sam") is a fact.
+    parent("Sam", "Jamie") is a fact.
 
 ask parent("Alex", "Sam")
-  Proof:
-    parent("Alex", "Sam")  [fact]
-  TRUE
+
+TRUE, because:
+  parent("Alex", "Sam") is a fact.
 
 ask parent(who, "Jamie")
+
+TRUE:
   who = "Sam"
-    parent("Sam", "Jamie")  [fact]
-  TRUE
+
+  Because parent("Sam", "Jamie") is a fact.
 
 ask parent("Jamie", "Alex")
-  FALSE
-  Dead ends (these goals could not be proved):
-    parent("Jamie", "Alex")
+
+FALSE:
+  No matching fact exists.
+  No rule defines parent.
 

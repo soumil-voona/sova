@@ -1,0 +1,35 @@
+# Exercise 6: Comparisons
+#
+# Numbers are written without quotes: fact age("Ana", 17). You can compare
+# them in a rule with < > <= >= == !=
+#
+#     rule tall(x):
+#         height(x, h)
+#         AND h > 180
+#
+# A comparison needs to know both values, so put the goal that finds h
+# (height(x, h)) before the comparison that tests it.
+#
+# Your tasks:
+#   1. adult(x): x is 18 or older
+#   2. teen(x): x is between 13 and 19, including 13 and 19
+
+fact age("Ana", 17)
+fact age("Ben", 30)
+fact age("Cy", 12)
+fact age("Di", 13)
+fact age("Eli", 19)
+
+# Write your rules below this line.
+
+
+
+# --- Checks: run ./sova --check on this file. Don't change below here. ---
+hint "Start each rule with age(x, a) to find x's age a."
+hint "For adult, test a >= 18. For teen, you need two comparisons joined with AND."
+expect adult("Ben")
+expect NOT adult("Ana")
+expect adult(who) gives "Ben", "Eli"
+expect teen("Ana")
+expect NOT teen("Cy")
+expect teen(who) gives "Ana", "Di", "Eli"

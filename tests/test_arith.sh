@@ -126,21 +126,40 @@ check_output "Proofs show calculations with their values" "" \
     AND unit = "m2"
 ask area(3, 4, a)' \
 'ask area(3, 4, a)
+
+TRUE:
   a = 12
-    area(3, 4, 12)  [rule area]
-      12 = 3 * 4  [calculation]
-      12 > 0  [comparison]
-      "m2" = "m2"  [match]
-  TRUE'
+
+  Because area(3, 4, 12) is satisfied by:
+    area(w, h, a) if a = w * h AND a > 0 AND unit = "m2"
+
+  Variable bindings:
+    a = 12
+    w = 3
+    h = 4
+    unit = "m2"
+
+  Proof:
+    a = 3 * 4 = 12 (calculated).
+    12 > 0 is true.
+    unit = "m2".'
 
 check_output "False calculations are dead ends" "" \
 'rule r(x):
     x * 2 = 10
 ask r(4)' \
 'ask r(4)
-  FALSE
-  Dead ends (these goals could not be proved):
-    8 = 10  (false)'
+
+FALSE, because:
+
+  Tried:
+    r(x) if x * 2 = 10
+
+  First goal:
+    4 * 2 = 10
+
+    FAILED:
+      4 * 2 is 8, not 10.'
 
 check_output "Factorial" "--brief" \
 'fact factorial(0, 1)

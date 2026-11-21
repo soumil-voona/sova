@@ -1,0 +1,31 @@
+# Exercise 2: Your first rule
+#
+# A rule says when something is true, based on other things:
+#
+#     rule happy(x):
+#         likes(x, "sunshine")
+#
+# means "x is happy if x likes sunshine". The name x is a variable: it can
+# stand for anyone. A variable is written without quotes.
+#
+# Below are parent facts: parent("Ada", "Ben") means Ada is a parent of Ben.
+#
+# Your task: write a rule child(c, p) that is true when c is a child of p.
+# (Think about what parent fact has to be true for that.)
+
+fact parent("Ada", "Ben")
+fact parent("Ada", "Fay")
+fact parent("Ben", "Cy")
+
+# Write your rule below this line.
+
+
+
+# --- Checks: run ./sova --check on this file. Don't change below here. ---
+hint "c is a child of p exactly when p is a parent of c."
+hint "The rule has one goal: parent(p, c). Notice the order of the variables."
+expect child("Ben", "Ada")
+expect child("Cy", "Ben")
+expect NOT child("Ada", "Ben")
+expect child(who, "Ada") gives "Ben", "Fay"
+expect child("Cy", p) gives "Ben"

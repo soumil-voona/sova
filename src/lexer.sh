@@ -3,7 +3,7 @@
 
 classify_word() {
     word="$1"
-    KEYWORDS=("fact" "rule" "ask" "AND" "OR" "NOT")
+    KEYWORDS=("fact" "rule" "ask" "AND" "OR" "NOT" "expect" "hint" "gives")
     found=0
     for item in "${KEYWORDS[@]}"; do
         if [[ "$word" == "$item" ]]; then

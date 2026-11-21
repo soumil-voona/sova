@@ -1,0 +1,3 @@
+rule family(x, y):
+    parent(x, y)
+    OR parent(y, x)

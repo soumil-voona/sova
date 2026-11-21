@@ -1,0 +1,8 @@
+rule class_size(c, n):
+    count(takes(s, c), n)
+rule class_list(c, l):
+    collect(s, takes(s, c), l)
+rule busy_class(c):
+    takes(someone, c)
+    AND class_size(c, n)
+    AND n >= 3

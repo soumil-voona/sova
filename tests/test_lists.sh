@@ -175,15 +175,34 @@ check_output "Lists in proofs and dead ends" "" \
 ask split([1, 2], h, t)
 ask split([], h, t)' \
 'ask split([1, 2], h, t)
-  h = 1, t = [2]
-    split([1, 2], 1, [2])  [rule split]
-      [1, 2] = [1, 2]  [match]
-  TRUE
+
+TRUE:
+  h = 1
+  t = [2]
+
+  Because split([1, 2], 1, [2]) is satisfied by:
+    split(l, h, t) if l = [h | t]
+
+  Variable bindings:
+    l = [1, 2]
+    h = 1
+    t = [2]
+
+  Proof:
+    l = [1, 2] matches [h | t].
 
 ask split([], h, t)
-  FALSE
-  Dead ends (these goals could not be proved):
-    [] = [_ | _]  (false)'
+
+FALSE, because:
+
+  Tried:
+    split(l, h, t) if l = [h | t]
+
+  First goal:
+    [] = [h | t]
+
+    FAILED:
+      [] doesn'"'"'t match [h | t].'
 
 check_output "Unknown items show as _" "--brief" \
 "$LISTS

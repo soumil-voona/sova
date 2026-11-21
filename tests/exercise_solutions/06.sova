@@ -1,0 +1,7 @@
+rule adult(x):
+    age(x, a)
+    AND a >= 18
+rule teen(x):
+    age(x, a)
+    AND a >= 13
+    AND a <= 19

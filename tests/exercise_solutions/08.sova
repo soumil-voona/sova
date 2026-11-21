@@ -1,0 +1,8 @@
+rule cost(item, n, total):
+    price(item, p)
+    AND total = p * n
+rule sum_to(n, s):
+    n > 0
+    AND m = n - 1
+    AND sum_to(m, r)
+    AND s = r + n

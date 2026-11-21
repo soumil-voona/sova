@@ -175,10 +175,5 @@ solve_text_builtin() {
             ;;
     esac
 
-    if [[ "${#BUILTIN_SUBSTS[@]}" -eq 0 ]]; then
-        resolve_args "$args" "$subst"
-        format_goal "$name" "$RESOLVED"
-        add_unique DEAD_ENDS "$FORMATTED  (false)"
-    fi
     return 0
 }

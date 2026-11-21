@@ -1,66 +1,279 @@
 ask ancestor("Ada", "Eli")
+
+TRUE, because:
+  ancestor("Ada", "Eli") is satisfied by:
+    ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+  Variable bindings:
+    x = "Ada"
+    z = "Ben"
+    y = "Eli"
+
   Proof:
-    ancestor("Ada", "Eli")  [rule ancestor, clause 2]
-      parent("Ada", "Ben")  [fact]
-      ancestor("Ben", "Eli")  [rule ancestor, clause 2]
-        parent("Ben", "Cleo")  [fact]
-        ancestor("Cleo", "Eli")  [rule ancestor, clause 2]
-          parent("Cleo", "Dev")  [fact]
-          ancestor("Dev", "Eli")  [rule ancestor, clause 1]
-            parent("Dev", "Eli")  [fact]
-  TRUE
+    parent("Ada", "Ben") is a fact.
+
+    ancestor("Ben", "Eli") is satisfied by:
+      ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+    Variable bindings:
+      x = "Ben"
+      z = "Cleo"
+      y = "Eli"
+
+    Proof:
+      parent("Ben", "Cleo") is a fact.
+
+      ancestor("Cleo", "Eli") is satisfied by:
+        ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+      Variable bindings:
+        x = "Cleo"
+        z = "Dev"
+        y = "Eli"
+
+      Proof:
+        parent("Cleo", "Dev") is a fact.
+
+        ancestor("Dev", "Eli") is satisfied by:
+          ancestor(x, y) if parent(x, y)
+
+        Variable bindings:
+          x = "Dev"
+          y = "Eli"
+
+        Proof:
+          parent("Dev", "Eli") is a fact.
 
 ask ancestor("Eli", "Ada")
-  FALSE
-  Dead ends (these goals could not be proved):
+
+FALSE, because:
+
+  Tried:
+    ancestor(x, y) if parent(x, y)
+
+  First goal:
     parent("Eli", "Ada")
-    parent("Eli", _)
+
+    FAILED:
+      No matching fact exists.
+
+  Tried:
+    ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+  First goal:
+    parent("Eli", z)
+
+    FAILED:
+      No matching fact exists.
 
 ask ancestor("Ada", who)
-  who = "Ben"
-    ancestor("Ada", "Ben")  [rule ancestor, clause 1]
-      parent("Ada", "Ben")  [fact]
-  who = "Fay"
-    ancestor("Ada", "Fay")  [rule ancestor, clause 1]
-      parent("Ada", "Fay")  [fact]
-  who = "Cleo"
-    ancestor("Ada", "Cleo")  [rule ancestor, clause 2]
-      parent("Ada", "Ben")  [fact]
-      ancestor("Ben", "Cleo")  [rule ancestor, clause 1]
-        parent("Ben", "Cleo")  [fact]
-  who = "Dev"
-    ancestor("Ada", "Dev")  [rule ancestor, clause 2]
-      parent("Ada", "Ben")  [fact]
-      ancestor("Ben", "Dev")  [rule ancestor, clause 2]
-        parent("Ben", "Cleo")  [fact]
-        ancestor("Cleo", "Dev")  [rule ancestor, clause 1]
-          parent("Cleo", "Dev")  [fact]
-  who = "Eli"
-    ancestor("Ada", "Eli")  [rule ancestor, clause 2]
-      parent("Ada", "Ben")  [fact]
-      ancestor("Ben", "Eli")  [rule ancestor, clause 2]
-        parent("Ben", "Cleo")  [fact]
-        ancestor("Cleo", "Eli")  [rule ancestor, clause 2]
-          parent("Cleo", "Dev")  [fact]
-          ancestor("Dev", "Eli")  [rule ancestor, clause 1]
-            parent("Dev", "Eli")  [fact]
-  TRUE
+
+TRUE, 5 answers:
+
+  Answer 1:
+    who = "Ben"
+
+    Because ancestor("Ada", "Ben") is satisfied by:
+      ancestor(x, y) if parent(x, y)
+
+    Variable bindings:
+      x = "Ada"
+      y = "Ben"
+
+    Proof:
+      parent("Ada", "Ben") is a fact.
+
+  Answer 2:
+    who = "Fay"
+
+    Because ancestor("Ada", "Fay") is satisfied by:
+      ancestor(x, y) if parent(x, y)
+
+    Variable bindings:
+      x = "Ada"
+      y = "Fay"
+
+    Proof:
+      parent("Ada", "Fay") is a fact.
+
+  Answer 3:
+    who = "Cleo"
+
+    Because ancestor("Ada", "Cleo") is satisfied by:
+      ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+    Variable bindings:
+      x = "Ada"
+      z = "Ben"
+      y = "Cleo"
+
+    Proof:
+      parent("Ada", "Ben") is a fact.
+
+      ancestor("Ben", "Cleo") is satisfied by:
+        ancestor(x, y) if parent(x, y)
+
+      Variable bindings:
+        x = "Ben"
+        y = "Cleo"
+
+      Proof:
+        parent("Ben", "Cleo") is a fact.
+
+  Answer 4:
+    who = "Dev"
+
+    Because ancestor("Ada", "Dev") is satisfied by:
+      ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+    Variable bindings:
+      x = "Ada"
+      z = "Ben"
+      y = "Dev"
+
+    Proof:
+      parent("Ada", "Ben") is a fact.
+
+      ancestor("Ben", "Dev") is satisfied by:
+        ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+      Variable bindings:
+        x = "Ben"
+        z = "Cleo"
+        y = "Dev"
+
+      Proof:
+        parent("Ben", "Cleo") is a fact.
+
+        ancestor("Cleo", "Dev") is satisfied by:
+          ancestor(x, y) if parent(x, y)
+
+        Variable bindings:
+          x = "Cleo"
+          y = "Dev"
+
+        Proof:
+          parent("Cleo", "Dev") is a fact.
+
+  Answer 5:
+    who = "Eli"
+
+    Because ancestor("Ada", "Eli") is satisfied by:
+      ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+    Variable bindings:
+      x = "Ada"
+      z = "Ben"
+      y = "Eli"
+
+    Proof:
+      parent("Ada", "Ben") is a fact.
+
+      ancestor("Ben", "Eli") is satisfied by:
+        ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+      Variable bindings:
+        x = "Ben"
+        z = "Cleo"
+        y = "Eli"
+
+      Proof:
+        parent("Ben", "Cleo") is a fact.
+
+        ancestor("Cleo", "Eli") is satisfied by:
+          ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+        Variable bindings:
+          x = "Cleo"
+          z = "Dev"
+          y = "Eli"
+
+        Proof:
+          parent("Cleo", "Dev") is a fact.
+
+          ancestor("Dev", "Eli") is satisfied by:
+            ancestor(x, y) if parent(x, y)
+
+          Variable bindings:
+            x = "Dev"
+            y = "Eli"
+
+          Proof:
+            parent("Dev", "Eli") is a fact.
 
 ask ancestor(who, "Dev")
-  who = "Cleo"
-    ancestor("Cleo", "Dev")  [rule ancestor, clause 1]
-      parent("Cleo", "Dev")  [fact]
-  who = "Ada"
-    ancestor("Ada", "Dev")  [rule ancestor, clause 2]
-      parent("Ada", "Ben")  [fact]
-      ancestor("Ben", "Dev")  [rule ancestor, clause 2]
-        parent("Ben", "Cleo")  [fact]
-        ancestor("Cleo", "Dev")  [rule ancestor, clause 1]
-          parent("Cleo", "Dev")  [fact]
-  who = "Ben"
-    ancestor("Ben", "Dev")  [rule ancestor, clause 2]
-      parent("Ben", "Cleo")  [fact]
-      ancestor("Cleo", "Dev")  [rule ancestor, clause 1]
-        parent("Cleo", "Dev")  [fact]
-  TRUE
+
+TRUE, 3 answers:
+
+  Answer 1:
+    who = "Cleo"
+
+    Because ancestor("Cleo", "Dev") is satisfied by:
+      ancestor(x, y) if parent(x, y)
+
+    Variable bindings:
+      x = "Cleo"
+      y = "Dev"
+
+    Proof:
+      parent("Cleo", "Dev") is a fact.
+
+  Answer 2:
+    who = "Ada"
+
+    Because ancestor("Ada", "Dev") is satisfied by:
+      ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+    Variable bindings:
+      x = "Ada"
+      z = "Ben"
+      y = "Dev"
+
+    Proof:
+      parent("Ada", "Ben") is a fact.
+
+      ancestor("Ben", "Dev") is satisfied by:
+        ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+      Variable bindings:
+        x = "Ben"
+        z = "Cleo"
+        y = "Dev"
+
+      Proof:
+        parent("Ben", "Cleo") is a fact.
+
+        ancestor("Cleo", "Dev") is satisfied by:
+          ancestor(x, y) if parent(x, y)
+
+        Variable bindings:
+          x = "Cleo"
+          y = "Dev"
+
+        Proof:
+          parent("Cleo", "Dev") is a fact.
+
+  Answer 3:
+    who = "Ben"
+
+    Because ancestor("Ben", "Dev") is satisfied by:
+      ancestor(x, y) if parent(x, z) AND ancestor(z, y)
+
+    Variable bindings:
+      x = "Ben"
+      z = "Cleo"
+      y = "Dev"
+
+    Proof:
+      parent("Ben", "Cleo") is a fact.
+
+      ancestor("Cleo", "Dev") is satisfied by:
+        ancestor(x, y) if parent(x, y)
+
+      Variable bindings:
+        x = "Cleo"
+        y = "Dev"
+
+      Proof:
+        parent("Cleo", "Dev") is a fact.
 

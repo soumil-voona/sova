@@ -165,27 +165,74 @@ check_output "Proofs show comparisons and NOT" "" \
 "$PEOPLE
 ask welcome(\"Jo\")" \
 'ask welcome("Jo")
+
+TRUE, because:
+  welcome("Jo") is satisfied by:
+    welcome(x) if adult(x) AND NOT banned(x)
+
+  Variable bindings:
+    x = "Jo"
+
   Proof:
-    welcome("Jo")  [rule welcome]
-      adult("Jo")  [rule adult]
-        age("Jo", 30)  [fact]
-        30 >= 18  [comparison]
-      NOT banned("Jo")  [not provable]
-  TRUE'
+    adult("Jo") is satisfied by:
+      adult(x) if age(x, a) AND a >= 18
+
+    Variable bindings:
+      x = "Jo"
+      a = 30
+
+    Proof:
+      age("Jo", 30) is a fact.
+      30 >= 18 is true.
+
+    NOT banned("Jo"): banned("Jo") can'"'"'t be proved.'
 
 check_output "FALSE explains comparisons and NOT" "" \
 "$PEOPLE
 ask welcome(\"Bob\")
 ask welcome(\"Sam\")" \
 'ask welcome("Bob")
-  FALSE
-  Dead ends (these goals could not be proved):
-    NOT banned("Bob")  (it can be proved)
+
+FALSE, because:
+
+  Tried:
+    welcome(x) if adult(x) AND NOT banned(x)
+
+  First goal:
+    adult("Bob")
+
+    Matched: by the rule for adult.
+
+  Second goal:
+    NOT banned("Bob")
+
+    FAILED:
+      banned("Bob") can be proved.
 
 ask welcome("Sam")
-  FALSE
-  Dead ends (these goals could not be proved):
-    17 >= 18  (false)'
+
+FALSE, because:
+
+  Tried:
+    welcome(x) if adult(x) AND NOT banned(x)
+
+  First goal:
+    adult("Sam")
+
+    Tried:
+      adult(x) if age(x, a) AND a >= 18
+
+    First goal:
+      age("Sam", a)
+
+      Matched:
+        a = 17
+
+    Second goal:
+      17 >= 18
+
+      FAILED:
+        17 >= 18 is false.'
 
 check_output "Constants in a rule head" "--brief" \
 'fact tasty("pizza")

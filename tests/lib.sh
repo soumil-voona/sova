@@ -24,8 +24,11 @@ check_output() {
 
     # shellcheck disable=SC2086 # flags is intentionally word-split
     actual="$("$SOVA" $flags "$temp_file" 2>&1)"
+    # Outputs that mention the file (like --check) show it as FILE.
+    actual="${actual//"$temp_file"/FILE}"
     rm -f "$temp_file"
 
+    test_dump "$name" "$actual"
     if [[ "$actual" == "$expected" ]]; then
         echo "[PASS] $name"
         PASS=$((PASS + 1))
@@ -34,6 +37,13 @@ check_output() {
         diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") | sed 's/^/    /'
         FAIL=$((FAIL + 1))
     fi
+}
+
+# For updating tests after an intended change in output: with SOVA_TEST_DUMP
+# set to a folder, each check saves its actual output there as NAME.txt.
+test_dump() {
+    [[ -n "$SOVA_TEST_DUMP" ]] || return 0
+    printf '%s' "$2" > "$SOVA_TEST_DUMP/${1//\//_}.txt"
 }
 
 # check_repl NAME FLAGS SOURCE INPUT EXPECTED
@@ -50,6 +60,7 @@ check_repl() {
     # shellcheck disable=SC2086 # flags is intentionally word-split
     actual="$(printf '%s\n' "$input" | "$SOVA" -i $flags $temp_file 2>&1)"
     [[ -n "$temp_file" ]] && rm -f "$temp_file"
+    test_dump "$name" "$actual"
 
     if [[ "$actual" == "$expected" ]]; then
         echo "[PASS] $name"

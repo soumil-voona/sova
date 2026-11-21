@@ -1,0 +1,3 @@
+rule can_join(x):
+    person(x)
+    AND NOT banned(x)

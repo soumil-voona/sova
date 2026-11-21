@@ -1,95 +1,403 @@
 ask length([5, 6, 7], n)
+
+TRUE:
   n = 3
-    length([5, 6, 7], 3)  [rule length]
-      length([6, 7], 2)  [rule length]
-        length([7], 1)  [rule length]
-          length([], 0)  [fact]
-          1 = 0 + 1  [calculation]
-        2 = 1 + 1  [calculation]
-      3 = 2 + 1  [calculation]
-  TRUE
+
+  Because length([5, 6, 7], 3) is satisfied by:
+    length([head | tail], n) if length(tail, m) AND n = m + 1
+
+  Variable bindings:
+    tail = [6, 7]
+    m = 2
+    n = 3
+    head = 5
+
+  Proof:
+    length([6, 7], 2) is satisfied by:
+      length([head | tail], n) if length(tail, m) AND n = m + 1
+
+    Variable bindings:
+      tail = [7]
+      m = 1
+      n = 2
+      head = 6
+
+    Proof:
+      length([7], 1) is satisfied by:
+        length([head | tail], n) if length(tail, m) AND n = m + 1
+
+      Variable bindings:
+        tail = []
+        m = 0
+        n = 1
+        head = 7
+
+      Proof:
+        length([], 0) is a fact.
+        n = 0 + 1 = 1 (calculated).
+
+      n = 1 + 1 = 2 (calculated).
+
+    n = 2 + 1 = 3 (calculated).
 
 ask append([1, 2], [3], all)
+
+TRUE:
   all = [1, 2, 3]
-    append([1, 2], [3], [1, 2, 3])  [rule append]
-      append([2], [3], [2, 3])  [rule append]
-        append([], [3], [3])  [fact]
-  TRUE
+
+  Because append([1, 2], [3], [1, 2, 3]) is satisfied by:
+    append([x | xs], ys, [x | zs]) if append(xs, ys, zs)
+
+  Variable bindings:
+    xs = [2]
+    ys = [3]
+    zs = [2, 3]
+    x = 1
+
+  Proof:
+    append([2], [3], [2, 3]) is satisfied by:
+      append([x | xs], ys, [x | zs]) if append(xs, ys, zs)
+
+    Variable bindings:
+      xs = []
+      ys = [3]
+      zs = [3]
+      x = 2
+
+    Proof:
+      append([], [3], [3]) is a fact (from the fact append([], ys, ys)).
 
 ask append(front, back, [1, 2])
-  front = [], back = [1, 2]
-    append([], [1, 2], [1, 2])  [fact]
-  front = [1], back = [2]
-    append([1], [2], [1, 2])  [rule append]
-      append([], [2], [2])  [fact]
-  front = [1, 2], back = []
-    append([1, 2], [], [1, 2])  [rule append]
-      append([2], [], [2])  [rule append]
-        append([], [], [])  [fact]
-  TRUE
+
+TRUE, 3 answers:
+
+  Answer 1:
+    front = []
+    back = [1, 2]
+
+    Because append([], [1, 2], [1, 2]) is a fact (from the fact append([], ys, ys)).
+
+  Answer 2:
+    front = [1]
+    back = [2]
+
+    Because append([1], [2], [1, 2]) is satisfied by:
+      append([x | xs], ys, [x | zs]) if append(xs, ys, zs)
+
+    Variable bindings:
+      xs = []
+      ys = [2]
+      zs = [2]
+      x = 1
+
+    Proof:
+      append([], [2], [2]) is a fact (from the fact append([], ys, ys)).
+
+  Answer 3:
+    front = [1, 2]
+    back = []
+
+    Because append([1, 2], [], [1, 2]) is satisfied by:
+      append([x | xs], ys, [x | zs]) if append(xs, ys, zs)
+
+    Variable bindings:
+      xs = [2]
+      ys = []
+      zs = [2]
+      x = 1
+
+    Proof:
+      append([2], [], [2]) is satisfied by:
+        append([x | xs], ys, [x | zs]) if append(xs, ys, zs)
+
+      Variable bindings:
+        xs = []
+        ys = []
+        zs = []
+        x = 2
+
+      Proof:
+        append([], [], []) is a fact (from the fact append([], ys, ys)).
 
 ask member(x, ["a", "b"])
-  x = "a"
-    member("a", ["a", "b"])  [fact]
-  x = "b"
-    member("b", ["a", "b"])  [rule member]
-      member("b", ["b"])  [fact]
-  TRUE
+
+TRUE, 2 answers:
+
+  Answer 1:
+    x = "a"
+
+    Because member("a", ["a", "b"]) is a fact (from the fact member(x, [x | rest])).
+
+  Answer 2:
+    x = "b"
+
+    Because member("b", ["a", "b"]) is satisfied by:
+      member(x, [y | rest]) if member(x, rest)
+
+    Variable bindings:
+      x = "b"
+      rest = ["b"]
+      y = "a"
+
+    Proof:
+      member("b", ["b"]) is a fact (from the fact member(x, [x | rest])).
 
 ask sum([1, 2, 3, 4], s)
+
+TRUE:
   s = 10
-    sum([1, 2, 3, 4], 10)  [rule sum]
-      sum([2, 3, 4], 9)  [rule sum]
-        sum([3, 4], 7)  [rule sum]
-          sum([4], 4)  [rule sum]
-            sum([], 0)  [fact]
-            4 = 4 + 0  [calculation]
-          7 = 3 + 4  [calculation]
-        9 = 2 + 7  [calculation]
-      10 = 1 + 9  [calculation]
-  TRUE
+
+  Because sum([1, 2, 3, 4], 10) is satisfied by:
+    sum([x | xs], total) if sum(xs, rest) AND total = x + rest
+
+  Variable bindings:
+    xs = [2, 3, 4]
+    rest = 9
+    total = 10
+    x = 1
+
+  Proof:
+    sum([2, 3, 4], 9) is satisfied by:
+      sum([x | xs], total) if sum(xs, rest) AND total = x + rest
+
+    Variable bindings:
+      xs = [3, 4]
+      rest = 7
+      total = 9
+      x = 2
+
+    Proof:
+      sum([3, 4], 7) is satisfied by:
+        sum([x | xs], total) if sum(xs, rest) AND total = x + rest
+
+      Variable bindings:
+        xs = [4]
+        rest = 4
+        total = 7
+        x = 3
+
+      Proof:
+        sum([4], 4) is satisfied by:
+          sum([x | xs], total) if sum(xs, rest) AND total = x + rest
+
+        Variable bindings:
+          xs = []
+          rest = 0
+          total = 4
+          x = 4
+
+        Proof:
+          sum([], 0) is a fact.
+          total = 4 + 0 = 4 (calculated).
+
+        total = 3 + 4 = 7 (calculated).
+
+      total = 2 + 7 = 9 (calculated).
+
+    total = 1 + 9 = 10 (calculated).
 
 ask reverse([1, 2, 3], r)
+
+TRUE:
   r = [3, 2, 1]
-    reverse([1, 2, 3], [3, 2, 1])  [rule reverse]
-      reverse_into([1, 2, 3], [], [3, 2, 1])  [rule reverse_into]
-        reverse_into([2, 3], [1], [3, 2, 1])  [rule reverse_into]
-          reverse_into([3], [2, 1], [3, 2, 1])  [rule reverse_into]
-            reverse_into([], [3, 2, 1], [3, 2, 1])  [fact]
-  TRUE
+
+  Because reverse([1, 2, 3], [3, 2, 1]) is satisfied by:
+    reverse(xs, out) if reverse_into(xs, [], out)
+
+  Variable bindings:
+    xs = [1, 2, 3]
+    out = [3, 2, 1]
+
+  Proof:
+    reverse_into([1, 2, 3], [], [3, 2, 1]) is satisfied by:
+      reverse_into([x | xs], acc, out) if reverse_into(xs, [x | acc], out)
+
+    Variable bindings:
+      xs = [2, 3]
+      x = 1
+      acc = []
+      out = [3, 2, 1]
+
+    Proof:
+      reverse_into([2, 3], [1], [3, 2, 1]) is satisfied by:
+        reverse_into([x | xs], acc, out) if reverse_into(xs, [x | acc], out)
+
+      Variable bindings:
+        xs = [3]
+        x = 2
+        acc = [1]
+        out = [3, 2, 1]
+
+      Proof:
+        reverse_into([3], [2, 1], [3, 2, 1]) is satisfied by:
+          reverse_into([x | xs], acc, out) if reverse_into(xs, [x | acc], out)
+
+        Variable bindings:
+          xs = []
+          x = 3
+          acc = [2, 1]
+          out = [3, 2, 1]
+
+        Proof:
+          reverse_into([], [3, 2, 1], [3, 2, 1]) is a fact (from the fact reverse_into([], acc, acc)).
 
 ask max_of([3, 9, 2], m)
+
+TRUE:
   m = 9
-    max_of([3, 9, 2], 9)  [rule max_of, clause 2]
-      max_of([9, 2], 9)  [rule max_of, clause 1]
-        max_of([2], 2)  [fact]
-        9 >= 2  [comparison]
-        9 = 9  [match]
-      3 < 9  [comparison]
-      9 = 9  [match]
-  TRUE
+
+  Because max_of([3, 9, 2], 9) is satisfied by:
+    max_of([x | xs], m) if max_of(xs, rest) AND x < rest AND m = rest
+
+  Variable bindings:
+    xs = [9, 2]
+    rest = 9
+    x = 3
+    m = 9
+
+  Proof:
+    max_of([9, 2], 9) is satisfied by:
+      max_of([x | xs], m) if max_of(xs, rest) AND x >= rest AND m = x
+
+    Variable bindings:
+      xs = [2]
+      rest = 2
+      x = 9
+      m = 9
+
+    Proof:
+      max_of([2], 2) is a fact (from the fact max_of([x], x)).
+      9 >= 2 is true.
+      m = 9 (matched).
+
+    3 < 9 is true.
+    m = 9 (matched).
 
 ask sort([3, 1, 2, 5, 4], s)
+
+TRUE:
   s = [1, 2, 3, 4, 5]
-    sort([3, 1, 2, 5, 4], [1, 2, 3, 4, 5])  [rule sort]
-      sort([1, 2, 5, 4], [1, 2, 4, 5])  [rule sort]
-        sort([2, 5, 4], [2, 4, 5])  [rule sort]
-          sort([5, 4], [4, 5])  [rule sort]
-            sort([4], [4])  [rule sort]
-              sort([], [])  [fact]
-              insert(4, [], [4])  [fact]
-            insert(5, [4], [4, 5])  [rule insert, clause 2]
-              5 > 4  [comparison]
-              insert(5, [], [5])  [fact]
-          insert(2, [4, 5], [2, 4, 5])  [rule insert, clause 1]
-            2 <= 4  [comparison]
-        insert(1, [2, 4, 5], [1, 2, 4, 5])  [rule insert, clause 1]
-          1 <= 2  [comparison]
-      insert(3, [1, 2, 4, 5], [1, 2, 3, 4, 5])  [rule insert, clause 2]
-        3 > 1  [comparison]
-        insert(3, [2, 4, 5], [2, 3, 4, 5])  [rule insert, clause 2]
-          3 > 2  [comparison]
-          insert(3, [4, 5], [3, 4, 5])  [rule insert, clause 1]
-            3 <= 4  [comparison]
-  TRUE
+
+  Because sort([3, 1, 2, 5, 4], [1, 2, 3, 4, 5]) is satisfied by:
+    sort([x | xs], sorted) if sort(xs, rest) AND insert(x, rest, sorted)
+
+  Variable bindings:
+    xs = [1, 2, 5, 4]
+    rest = [1, 2, 4, 5]
+    x = 3
+    sorted = [1, 2, 3, 4, 5]
+
+  Proof:
+    sort([1, 2, 5, 4], [1, 2, 4, 5]) is satisfied by:
+      sort([x | xs], sorted) if sort(xs, rest) AND insert(x, rest, sorted)
+
+    Variable bindings:
+      xs = [2, 5, 4]
+      rest = [2, 4, 5]
+      x = 1
+      sorted = [1, 2, 4, 5]
+
+    Proof:
+      sort([2, 5, 4], [2, 4, 5]) is satisfied by:
+        sort([x | xs], sorted) if sort(xs, rest) AND insert(x, rest, sorted)
+
+      Variable bindings:
+        xs = [5, 4]
+        rest = [4, 5]
+        x = 2
+        sorted = [2, 4, 5]
+
+      Proof:
+        sort([5, 4], [4, 5]) is satisfied by:
+          sort([x | xs], sorted) if sort(xs, rest) AND insert(x, rest, sorted)
+
+        Variable bindings:
+          xs = [4]
+          rest = [4]
+          x = 5
+          sorted = [4, 5]
+
+        Proof:
+          sort([4], [4]) is satisfied by:
+            sort([x | xs], sorted) if sort(xs, rest) AND insert(x, rest, sorted)
+
+          Variable bindings:
+            xs = []
+            rest = []
+            x = 4
+            sorted = [4]
+
+          Proof:
+            sort([], []) is a fact.
+            insert(4, [], [4]) is a fact (from the fact insert(x, [], [x])).
+
+          insert(5, [4], [4, 5]) is satisfied by:
+            insert(x, [y | ys], [y | zs]) if x > y AND insert(x, ys, zs)
+
+          Variable bindings:
+            x = 5
+            y = 4
+            ys = []
+            zs = [5]
+
+          Proof:
+            5 > 4 is true.
+            insert(5, [], [5]) is a fact (from the fact insert(x, [], [x])).
+
+        insert(2, [4, 5], [2, 4, 5]) is satisfied by:
+          insert(x, [y | ys], [x, y | ys]) if x <= y
+
+        Variable bindings:
+          x = 2
+          y = 4
+          ys = [5]
+
+        Proof:
+          2 <= 4 is true.
+
+      insert(1, [2, 4, 5], [1, 2, 4, 5]) is satisfied by:
+        insert(x, [y | ys], [x, y | ys]) if x <= y
+
+      Variable bindings:
+        x = 1
+        y = 2
+        ys = [4, 5]
+
+      Proof:
+        1 <= 2 is true.
+
+    insert(3, [1, 2, 4, 5], [1, 2, 3, 4, 5]) is satisfied by:
+      insert(x, [y | ys], [y | zs]) if x > y AND insert(x, ys, zs)
+
+    Variable bindings:
+      x = 3
+      y = 1
+      ys = [2, 4, 5]
+      zs = [2, 3, 4, 5]
+
+    Proof:
+      3 > 1 is true.
+
+      insert(3, [2, 4, 5], [2, 3, 4, 5]) is satisfied by:
+        insert(x, [y | ys], [y | zs]) if x > y AND insert(x, ys, zs)
+
+      Variable bindings:
+        x = 3
+        y = 2
+        ys = [4, 5]
+        zs = [3, 4, 5]
+
+      Proof:
+        3 > 2 is true.
+
+        insert(3, [4, 5], [3, 4, 5]) is satisfied by:
+          insert(x, [y | ys], [x, y | ys]) if x <= y
+
+        Variable bindings:
+          x = 3
+          y = 4
+          ys = [5]
+
+        Proof:
+          3 <= 4 is true.
 

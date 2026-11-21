@@ -1,0 +1,4 @@
+fact last([x], x)
+rule last([head | tail], x):
+    last(tail, x)
+fact second([a, b | rest], b)

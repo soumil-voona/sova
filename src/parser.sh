@@ -11,6 +11,17 @@
 #   GOAL <op> <name> <args>        body goal of the most recent RULE;
 #                                  op is FIRST, AND, or OR
 #   ASK  <name> <args>             ask grandparent("Alex", "Jamie")
+#   EXPECT <kind> <name> <args> <answers>
+#                                  a check for ./sova --check (exercises):
+#                                  expect grandparent("Alex", "Jamie")       kind yes
+#                                  expect NOT grandparent("Sam", "Alex")     kind no
+#                                  expect parent("Ada", c) gives "Ben", "Fay"  kind gives
+#                                  Answers are joined by $ANSWER_SEP, and the
+#                                  values in one answer by $AST_AS. With
+#                                  several variables an answer is written in
+#                                  parentheses: gives ("Ada", "Ben"), ...
+#   HINT <text>                    hint "Use two parent goals." (shown when
+#                                  a check fails)
 #
 # Terms are quoted strings ("Alex"), integers (17, -3), variables (x), or
 # lists ([], [1, 2], [head | tail]; see src/terms.sh).
@@ -37,6 +48,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/arith.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/terms.sh"
 
 AST_FS=$'\x1f'
+ANSWER_SEP=$'\x11'
 AST_AS=$'\x1e'
 AST=()
 
@@ -221,6 +233,93 @@ parse_gather() {
     fi
 }
 
+# find_gives TEXT -> GIVES_POS: where " gives " starts, outside quotes.
+find_gives() {
+    local text="$1" i n="${#1}" in_string=0
+    for ((i = 0; i < n; i++)); do
+        if [[ "${text:i:1}" == '"' ]]; then
+            in_string=$((1 - in_string))
+        elif [[ "$in_string" -eq 0 && "${text:i:7}" == " gives " ]]; then
+            GIVES_POS="$i"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# parse_expect TEXT -> EXPECT_NODE ("kind FS name FS args FS answers"), or
+# fails with EXPECT_ERROR.
+parse_expect() {
+    local text="$1" kind="yes" call answers_text="" answer value
+    local -a answers=() items values
+    if [[ "$text" =~ ^NOT[[:space:]]+(.+)$ ]]; then
+        kind="no"
+        text="${BASH_REMATCH[1]}"
+    fi
+    call="$text"
+    if find_gives "$text"; then
+        [[ "$kind" == "no" ]] && EXPECT_ERROR="expect NOT can't have 'gives'" && return 1
+        kind="gives"
+        call="${text:0:GIVES_POS}"
+        answers_text="$(trim "${text:GIVES_POS + 7}")"
+    fi
+    if ! parse_call "$(trim "$call")"; then
+        EXPECT_ERROR="expected a predicate call after expect"
+        return 1
+    fi
+    local name="$CALL_NAME" args="$CALL_ARGS"
+
+    # How many variables the question has: each answer gives one value each.
+    TERM_VARS=()
+    split_on "$AST_AS" "$args"
+    local term
+    for term in "${SPLIT[@]}"; do
+        term_vars "$term"
+    done
+    local -a vars=()
+    for term in "${TERM_VARS[@]}"; do
+        add_unique vars "$term"
+    done
+
+    if [[ "$kind" == "gives" ]]; then
+        if [[ "${#vars[@]}" -eq 0 ]]; then
+            EXPECT_ERROR="'gives' needs a question with a variable, like parent(\"Ada\", child)"
+            return 1
+        fi
+        split_args "$answers_text" || { EXPECT_ERROR="unclosed string in the answers"; return 1; }
+        items=("${SPLIT_RESULT[@]}")
+        for answer in "${items[@]}"; do
+            values=()
+            if [[ "${#vars[@]}" -gt 1 ]]; then
+                if [[ "$answer" != "("*")" ]]; then
+                    EXPECT_ERROR="with ${#vars[@]} variables, write each answer in parentheses, like (\"a\", 1)"
+                    return 1
+                fi
+                answer="${answer:1:${#answer}-2}"
+                split_args "$answer" || { EXPECT_ERROR="unclosed string in the answers"; return 1; }
+                values=("${SPLIT_RESULT[@]}")
+            else
+                values=("$answer")
+            fi
+            if [[ "${#values[@]}" -ne "${#vars[@]}" ]]; then
+                EXPECT_ERROR="each answer needs ${#vars[@]} values (one for each of: ${vars[*]})"
+                return 1
+            fi
+            if ! parse_terms "${values[@]}"; then
+                EXPECT_ERROR="couldn't read the answer '$answer'"
+                return 1
+            fi
+            local IFS="$AST_AS"
+            answers+=("${SPLIT_RESULT[*]}")
+            unset IFS
+        done
+        local IFS="$ANSWER_SEP"
+        answers_text="${answers[*]}"
+        unset IFS
+    fi
+    EXPECT_NODE="${kind}${AST_FS}${name}${AST_FS}${args}${AST_FS}${answers_text}"
+}
+
 parser_error() {
     echo "Syntax error on line $1: $2" >&2
     return 1
@@ -244,7 +343,7 @@ parse_program() {
         [[ -z "$content" ]] && continue
 
         if [[ "$in_rule" -eq 1 ]]; then
-            if [[ "$content" =~ ^(fact|rule|ask)[[:space:]] ]]; then
+            if [[ "$content" =~ ^(fact|rule|ask|expect|hint)[[:space:]] ]]; then
                 if [[ "$goal_count" -eq 0 ]]; then
                     parser_error "$line_number" "rule '$rule_name' has no body"
                     return 1
@@ -279,6 +378,20 @@ parse_program() {
                 return 1
             fi
             AST+=("FACT${AST_FS}${CALL_NAME}${AST_FS}${CALL_ARGS}")
+            continue
+        fi
+
+        if [[ "$content" =~ ^hint[[:space:]]+(\".*\")$ ]]; then
+            AST+=("HINT${AST_FS}${BASH_REMATCH[1]}")
+            continue
+        fi
+
+        if [[ "$content" =~ ^expect[[:space:]]+(.+)$ ]]; then
+            if ! parse_expect "${BASH_REMATCH[1]}"; then
+                parser_error "$line_number" "$EXPECT_ERROR"
+                return 1
+            fi
+            AST+=("EXPECT${AST_FS}${EXPECT_NODE}")
             continue
         fi
 

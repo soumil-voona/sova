@@ -19,3 +19,4 @@ ask ancestor("Ada", "Eli")
 ask ancestor("Eli", "Ada")
 ask ancestor("Ada", who)
 ask ancestor(who, "Dev")
+

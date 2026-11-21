@@ -64,21 +64,45 @@ Result:
 
 ```text
 ask grandparent("Alex", "Jamie")
+
+TRUE, because:
+  grandparent("Alex", "Jamie") is satisfied by:
+    grandparent(x, z) if parent(x, y) AND parent(y, z)
+
+  Variable bindings:
+    x = "Alex"
+    y = "Sam"
+    z = "Jamie"
+
   Proof:
-    grandparent("Alex", "Jamie")  [rule grandparent]
-      parent("Alex", "Sam")  [fact]
-      parent("Sam", "Jamie")  [fact]
-  TRUE
+    parent("Alex", "Sam") is a fact.
+    parent("Sam", "Jamie") is a fact.
 ```
 
-Each answer comes with a proof tree: every goal is indented under the rule that needed it, and labeled with the fact or rule that proved it. When a query is FALSE, Sova lists the dead ends, meaning the goals nothing could match:
+Every answer is explained from what the search actually did. When a rule proves the answer, Sova shows that rule as written, the value each of its variables took, and how each of its goals was proved, nesting the same explanation for rules used inside rules. When a question is FALSE, Sova walks through each rule it tried, goal by goal. It shows each goal as it looked before it was tried, what it matched, and why the goal that failed couldn't be proved:
 
 ```text
 ask grandparent("Sam", "Alex")
-  FALSE
-  Dead ends (these goals could not be proved):
+
+FALSE, because:
+
+  Tried:
+    grandparent(x, z) if parent(x, y) AND parent(y, z)
+
+  First goal:
+    parent("Sam", y)
+
+    Matched:
+      y = "Jamie"
+
+  Second goal:
     parent("Jamie", "Alex")
+
+    FAILED:
+      No matching fact exists.
 ```
+
+`--brief` prints just the answers.
 
 Sova can also show how a rule could be written in a conventional language:
 
@@ -226,7 +250,7 @@ The project intentionally uses Bash to explore how much of a programming languag
 - [x] Pseudocode generation
 - [x] Python translation
 - [x] JavaScript translation
-- [ ] Interactive learning environment
+- [x] Interactive learning environment (exercises with a checker)
 - [x] Programming paradigm comparisons
 - [x] Arithmetic (`m = n - 1`)
 - [x] Lists and `[head | tail]` patterns
@@ -287,6 +311,33 @@ The [examples](examples) folder shows each feature in use. See `math.sova` for f
 - If a fully known goal comes up again while it is still being proved (a cycle in a graph, or a rule like `knows(x, y) if knows(y, x)`), Sova doesn't try to prove it a second time, because the second attempt can never find a new answer.
 - The search stops when rules are nested 200 calls deep, so a rule that calls itself forever gives `UNKNOWN` instead of hanging. Long computations are fine: the limit is on nesting, not on the number of steps. Set `SOVA_MAX_DEPTH` to change the limit.
 
+## Exercises
+
+Ten exercises build up the language one idea at a time. They start with facts and simple rules, move on to `AND`, `OR`, recursion, comparisons, `NOT`, arithmetic, and lists, and finish with `count` and `collect`.
+
+```bash
+./sova --exercises          # list them, with your progress
+./sova --start 1            # copy exercise 1 into my-exercises/
+./sova --check my-exercises/01-facts.sova
+```
+
+Each exercise explains its idea at the top, gives you the facts, and marks where to write. At the bottom are checks:
+
+```text
+hint "You need two parent goals."
+expect grandparent("Ada", "Cy")                       # should be true
+expect NOT grandparent("Ben", "Cy")                   # should be false
+expect grandparent("Ada", who) gives "Cy", "Di", "Eli" # exactly these answers
+```
+
+`--check` marks each check as passing or failing. When one fails, it explains why:
+
+- the goals that couldn't be proved, or an error like using a value before it is known
+- the proof, when something is true that shouldn't be
+- which answers are missing and which weren't expected
+
+Then it shows the hints. When everything passes, it suggests `--compare` so you can see your rule written as code. `--start` never overwrites a copy you already have. Any file can use `expect` and `hint` lines, and a normal run ignores them.
+
 ## Interactive Prompt
 
 `./sova -i FILE` loads a program without running its `ask` lines, then lets you type questions and add facts or rules:
@@ -294,9 +345,11 @@ The [examples](examples) folder shows each feature in use. See `math.sova` for f
 ```text
 ?- parent(who, "Jamie")
 ask parent(who, "Jamie")
+
+TRUE:
   who = "Sam"
-    parent("Sam", "Jamie")  [fact]
-  TRUE
+
+  Because parent("Sam", "Jamie") is a fact.
 ?- fact parent("Jamie", "Kai")
   Added.
 ?- rule great(x, y):

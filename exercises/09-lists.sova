@@ -1,0 +1,31 @@
+# Exercise 9: Lists
+#
+# A list is written [1, 2, 3], and [] is the empty list. The pattern
+# [head | tail] splits a list into its first item and the rest:
+# [head | tail] matched with [1, 2, 3] gives head = 1 and tail = [2, 3].
+#
+# Rules over lists usually have a case for the smallest list, and a case
+# that handles the first item and uses the rule again on the tail. A case
+# that needs no goals is written as a fact with variables:
+#
+#     fact first([x | rest], x)
+#
+# Your tasks:
+#   1. last(l, x): x is the last item of list l.
+#      (A one-item list [x] is the smallest case.)
+#   2. second(l, x): x is the second item of l. You can match two items
+#      at once with [a, b | rest].
+
+# Write your facts and rules below this line.
+
+
+
+# --- Checks: run ./sova --check on this file. Don't change below here. ---
+hint "last has two cases: fact last([x], x), and a rule for [head | tail] that uses last(tail, x)."
+hint "second needs no goals: fact second([a, b | rest], b)"
+expect last([1, 2, 3], 3)
+expect last(["a"], x) gives "a"
+expect last([5, 6, 7, 8], x) gives 8
+expect NOT last([], x)
+expect second([1, 2, 3], x) gives 2
+expect NOT second([1], x)

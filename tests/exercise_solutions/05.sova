@@ -1,0 +1,5 @@
+rule ancestor(a, d):
+    parent(a, d)
+rule ancestor(a, d):
+    parent(a, m)
+    AND ancestor(m, d)

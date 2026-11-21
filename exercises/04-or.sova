@@ -1,0 +1,28 @@
+# Exercise 4: OR
+#
+# Sometimes either of two things is enough. Join the goals with OR:
+#
+#     rule can_enter(x):
+#         has_ticket(x)
+#         OR is_staff(x)
+#
+# Sova tries each side, and each one that works gives an answer.
+#
+# Your task: write family(x, y), which is true when x is a parent of y,
+# or y is a parent of x.
+
+fact parent("Ada", "Ben")
+fact parent("Ben", "Cy")
+
+# Write your rule below this line.
+
+
+
+# --- Checks: run ./sova --check on this file. Don't change below here. ---
+hint "Write two goals joined by OR: one where x is the parent, and one where y is."
+hint "parent(x, y) OR parent(y, x)"
+expect family("Ada", "Ben")
+expect family("Ben", "Ada")
+expect family("Cy", "Ben")
+expect NOT family("Ada", "Cy")
+expect family("Ben", who) gives "Ada", "Cy"

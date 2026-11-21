@@ -1,0 +1,3 @@
+fact likes("Ana", "pizza")
+fact likes("Ben", "sushi")
+fact likes("Cy", "pizza")

@@ -1,0 +1,33 @@
+# Exercise 8: Arithmetic
+#
+# = calculates: "total = p * n" gives total the value of p times n. You can
+# use + - * / % and parentheses. (/ divides whole numbers, rounding down.)
+#
+#     rule double(x, y):
+#         y = x * 2
+#
+# Combined with recursion, this lets rules compute things step by step.
+#
+# Your tasks:
+#   1. cost(item, n, total): the total price of n of the item.
+#   2. sum_to(n, s): s is 1 + 2 + ... + n. The case for 0 is given below;
+#      write the rule for n > 0, which uses the answer for n - 1.
+
+fact price("apple", 3)
+fact price("melon", 7)
+
+fact sum_to(0, 0)
+
+# Write your rules below this line.
+
+
+
+# --- Checks: run ./sova --check on this file. Don't change below here. ---
+hint "For cost: find the price p with price(item, p), then total = p * n."
+hint "For sum_to: check n > 0, work out m = n - 1, find sum_to(m, r), then s = r + n."
+expect cost("apple", 4, 12)
+expect cost("melon", 2, total) gives 14
+expect NOT cost("apple", 2, 7)
+expect sum_to(3, s) gives 6
+expect sum_to(10, s) gives 55
+expect sum_to(1, 1)

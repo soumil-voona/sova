@@ -182,10 +182,10 @@ term_text_inner() {
     done
     if [[ "$term" != "[]" ]]; then
         if is_variable "$term"; then
-            if [[ "$have_subst" -eq 1 ]]; then
+            if [[ "$have_subst" -eq 1 && "$TT_KEEP_NAMES" -ne 1 ]]; then
                 item="_"
             else
-                item="$term"
+                item="${term%%#*}"
             fi
         else
             item="$term"

@@ -1,0 +1,27 @@
+# Exercise 1: Facts
+#
+# A fact states something that is true:
+#
+#     fact likes("Ana", "pizza")
+#
+# likes is the name of the relationship, and "Ana" and "pizza" are the
+# things it relates. Text goes in double quotes. Once Sova has facts, it can
+# answer questions about them, like: who likes pizza?
+#
+# Your task: add facts so that Sova knows
+#   - Ana likes pizza
+#   - Ben likes sushi
+#   - Cy likes pizza
+#
+# Write your facts below this line.
+
+
+
+# --- Checks: run ./sova --check on this file. Don't change below here. ---
+hint "Each fact looks like: fact likes("Ana", "pizza")"
+hint "Write one fact per line, three in all."
+expect likes("Ana", "pizza")
+expect likes("Ben", "sushi")
+expect NOT likes("Ben", "pizza")
+expect likes(who, "pizza") gives "Ana", "Cy"
+expect likes("Cy", food) gives "pizza"
