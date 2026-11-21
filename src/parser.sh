@@ -367,7 +367,7 @@ parse_expect() {
 }
 
 parser_error() {
-    echo "Syntax error on line $1: $2" >&2
+    echo "${E_RED}Syntax error on line $1:${E_RESET} $2" >&2
     return 1
 }
 

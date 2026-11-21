@@ -39,7 +39,7 @@ exercise_file() {
 
 list_exercises() {
     local file name copy status number
-    echo "Sova exercises"
+    echo "${C_BOLD}Sova exercises${C_RESET}"
     echo
     for file in "$EXERCISE_SOURCE_DIR"/*.sova; do
         name="$(basename "$file")"
@@ -47,7 +47,7 @@ list_exercises() {
         exercise_title "$file"
         copy="$EXERCISE_WORK_DIR/$name"
         if [[ ! -f "$copy" ]]; then
-            status="not started"
+            status="${C_DIM}not started${C_RESET}"
         else
             # Each check runs in a subshell so one copy can't affect another.
             local counts
@@ -55,14 +55,14 @@ list_exercises() {
             counts="$(CHECK_QUIET=1; check_file "$copy" > /dev/null 2>&1; echo "$CHECK_PASSED $CHECK_TOTAL")"
             local passed="${counts%% *}" total="${counts##* }"
             if [[ "$total" -gt 0 && "$passed" -eq "$total" ]]; then
-                status="done"
+                status="${C_GREEN}done${C_RESET}"
             elif [[ "$total" -eq 0 ]]; then
-                status="has a syntax error"
+                status="${C_RED}has a syntax error${C_RESET}"
             else
-                status="$passed of $total checks pass"
+                status="${C_YELLOW}$passed of $total checks pass${C_RESET}"
             fi
         fi
-        printf '  %2d  %-34s %s\n' "$number" "$EXERCISE_TITLE" "$status"
+        printf '  %s%2d%s  %-34s %s\n' "$C_CYAN" "$number" "$C_RESET" "$EXERCISE_TITLE" "$status"
     done
     echo
     echo "Start one with:  ./sova --start N"
@@ -72,7 +72,7 @@ list_exercises() {
 start_exercise() {
     local copy
     if ! exercise_file "$1"; then
-        echo "There is no exercise $1. See the list with: ./sova --exercises" >&2
+        echo "${E_RED}There is no exercise $1. See the list with: ./sova --exercises${E_RESET}" >&2
         return 1
     fi
     mkdir -p "$EXERCISE_WORK_DIR" || return 1
@@ -82,7 +82,7 @@ start_exercise() {
         echo "You already have $shown (it wasn't changed)."
     else
         cp "$EXERCISE_FILE" "$copy" || return 1
-        echo "Created $shown"
+        echo "${C_GREEN}Created${C_RESET} $shown"
     fi
     echo "Open it, follow the instructions at the top, then check your work with:"
     echo "  ./sova --check $shown"

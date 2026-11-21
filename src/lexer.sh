@@ -109,7 +109,7 @@ tokenize_file() {
         done
 
         if [[ "$in_string" -eq 1 ]]; then
-            echo "Lexical error on line $line_number: unterminated string" >&2
+            echo "${E_RED}Lexical error on line $line_number:${E_RESET} unterminated string" >&2
             return 1
         fi
 

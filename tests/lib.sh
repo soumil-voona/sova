@@ -11,6 +11,10 @@ SOVA="$TEST_DIR/../sova"
 # that hit it on purpose stay fast. Tests that need more set it themselves.
 export SOVA_MAX_DEPTH=100
 
+# Expected outputs are plain text, so color stays off even if the caller
+# set SOVA_COLOR.
+export SOVA_COLOR=never
+
 PASS=0
 FAIL=0
 

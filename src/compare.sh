@@ -123,14 +123,14 @@ compare_paradigms() {
     elif parse_call "$target"; then
         name="$CALL_NAME"
     else
-        echo "Expected a predicate name or call, like ancestor or ancestor(\"Ada\", who)" >&2
+        echo "${E_RED}Expected a predicate name or call, like ancestor or ancestor(\"Ada\", who)${E_RESET}" >&2
         return 1
     fi
     if ! pred_has_rules "$name"; then
         if pred_has_facts "$name"; then
-            echo "'$name' is only facts, so there's no rule to compare. Try a predicate defined by a rule." >&2
+            echo "${E_RED}'$name' is only facts, so there's no rule to compare. Try a predicate defined by a rule.${E_RESET}" >&2
         else
-            echo "No facts or rules define '$name'" >&2
+            echo "${E_RED}No facts or rules define '$name'${E_RESET}" >&2
         fi
         return 1
     fi

@@ -262,7 +262,7 @@ kb_print_arity_warnings() {
     local warning
     kb_check_arity
     for warning in "${ARITY_WARNINGS[@]}"; do
-        echo "Warning: $warning" >&2
+        echo "${E_YELLOW}Warning:${E_RESET} $warning" >&2
     done
 }
 

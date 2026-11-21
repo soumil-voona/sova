@@ -31,7 +31,10 @@ REPL_SHOWN_WARNINGS=()
 
 repl_read() {
     if [[ "$REPL_INTERACTIVE" -eq 1 ]]; then
-        IFS= read -e -r -p "$1" REPLY
+        local prompt="$1"
+        # \001 and \002 tell readline the color codes take no space.
+        [[ -n "$C_RESET" ]] && prompt=$'\001'"${C_BOLD}${C_MAGENTA}"$'\002'"$1"$'\001'"${C_RESET}"$'\002'
+        IFS= read -e -r -p "$prompt" REPLY
     else
         IFS= read -r REPLY
     fi
@@ -67,7 +70,8 @@ repl_new_warnings() {
             [[ "$shown" == "$warning" ]] && seen=1
         done
         if [[ "$seen" -eq 0 ]]; then
-            echo "Warning: $warning" >&2
+            # shellcheck disable=SC2153 # set in src/color.sh
+            echo "${E_YELLOW}Warning:${E_RESET} $warning" >&2
             REPL_SHOWN_WARNINGS+=("$warning")
         fi
     done
@@ -85,9 +89,9 @@ repl_add() {
     kb_load
     repl_new_warnings
     if [[ "${#KB_FACTS[@]}/${#KB_RULES[@]}" == "$before" ]]; then
-        echo "  Already known."
+        echo "  ${C_DIM}Already known.${C_RESET}"
     else
-        echo "  Added."
+        echo "  ${C_GREEN}Added.${C_RESET}"
     fi
 }
 

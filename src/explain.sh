@@ -332,7 +332,7 @@ explain_rule_step() {
     local -a vars=("${ALT_VARS[@]}")
     if [[ "${#vars[@]}" -gt 0 ]]; then
         say 0 ""
-        say "$indent" "Variable bindings:"
+        say "$indent" "${C_BOLD}Variable bindings:${C_RESET}"
         for var in "${vars[@]}"; do
             walk "${var}#${suffix}" "$EXPLAIN_SUBST"
             if is_variable "$WALKED"; then
@@ -349,7 +349,7 @@ explain_rule_step() {
     local -a children=("${CHILDREN[@]}")
     local child n
     say 0 ""
-    say "$indent" "Proof:"
+    say "$indent" "${C_BOLD}Proof:${C_RESET}"
     for ((n = 0; n < ${#children[@]}; n++)); do
         child="${children[n]}"
         # A rule inside the proof gets blank lines around it, so each

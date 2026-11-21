@@ -12,6 +12,10 @@
 #
 # Translated programs (--python, --javascript, ...) are never colored, so
 # they can be copied or saved and run as they are.
+#
+# The variables are used by the other files, which shellcheck sees one at
+# a time.
+# shellcheck disable=SC2034
 
 # color_enabled FD: whether file descriptor FD should get color.
 color_enabled() {

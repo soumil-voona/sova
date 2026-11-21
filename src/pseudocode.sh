@@ -1696,11 +1696,11 @@ translate_to() {
         name="$CALL_NAME"
         args="$CALL_ARGS"
     else
-        echo "Expected a predicate name or call, like ancestor or ancestor(\"Ada\", who)" >&2
+        echo "${E_RED}Expected a predicate name or call, like ancestor or ancestor(\"Ada\", who)${E_RESET}" >&2
         return 1
     fi
     if ! pred_has_rules "$name" && ! pred_has_facts "$name"; then
-        echo "No facts or rules define '$name'" >&2
+        echo "${E_RED}No facts or rules define '$name'${E_RESET}" >&2
         return 1
     fi
 

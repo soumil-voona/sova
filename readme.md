@@ -425,6 +425,8 @@ tests/run_all.sh test_rules test_trace # run only some suites
 shellcheck -x sova src/*.sh tests/*.sh # lint
 ```
 
+Output is colored when it goes to a terminal: `TRUE` in green, `FALSE` and errors in red, `UNKNOWN` and warnings in yellow. Piped or saved output stays plain, and translated programs are never colored. Set `SOVA_COLOR=always` or `SOVA_COLOR=never` to choose, or set `NO_COLOR` to turn it off.
+
 ## Project Structure
 
 ```text
