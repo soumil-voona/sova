@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #sova
 #
-# Usage: ./sova [--brief] FILE
-#        ./sova -i [--brief] [FILE]
+# Usage: ./sova [--brief] [--trace] FILE
+#        ./sova -i [--brief] [--trace] [FILE]
 #        ./sova --pseudocode TARGET FILE
 #        ./sova --python | --functional | --javascript TARGET FILE
 #        ./sova --compare TARGET FILE
@@ -12,6 +12,9 @@
 #   (no flag)  answer each ask, with a proof for every answer and an
 #              explanation for every FALSE
 #   --brief    answer without proofs or explanations
+#   --trace    first show the search step by step: each goal Sova tries,
+#              what it matches, dead ends, and going back to try other
+#              options (stops after 300 goals; set SOVA_TRACE_LIMIT)
 #   -i         interactive prompt: load FILE (optional), then ask questions
 #              and add facts or rules
 #   --pseudocode TARGET
@@ -50,6 +53,8 @@ source "$SOVA_DIR/src/knowledge_base.sh"
 source "$SOVA_DIR/src/inference.sh"
 # shellcheck source=src/explain.sh
 source "$SOVA_DIR/src/explain.sh"
+# shellcheck source=src/trace.sh
+source "$SOVA_DIR/src/trace.sh"
 # shellcheck source=src/builtins.sh
 source "$SOVA_DIR/src/builtins.sh"
 # shellcheck source=src/pseudocode.sh
@@ -76,6 +81,7 @@ while [[ "$1" == -* ]]; do
         --ast)              mode="ast" ;;
         --kb)               mode="kb" ;;
         --brief)            SOVA_BRIEF=1 ;;
+        --trace)            SOVA_TRACE=1 ;;
         -i | --interactive) mode="repl" ;;
         --check)            mode="check" ;;
         --exercises)        mode="exercises" ;;

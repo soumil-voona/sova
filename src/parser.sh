@@ -55,28 +55,48 @@ AST=()
 NAME_PATTERN='^[a-zA-Z_][a-zA-Z0-9_]*$'
 NUMBER_PATTERN='^-?[0-9]+$'
 
-trim() {
-    local value="$1"
-    value="${value#"${value%%[![:space:]]*}"}"
-    value="${value%"${value##*[![:space:]]}"}"
-    printf '%s' "$value"
+# The parser runs these helpers several times per line, so they set a
+# global instead of printing: "$(...)" would start a subshell each time,
+# which made loading a few thousand facts take tens of seconds.
+
+# trim_to TEXT -> TRIMMED: TEXT without leading or trailing whitespace.
+trim_to() {
+    TRIMMED="${1#"${1%%[![:space:]]*}"}"
+    TRIMMED="${TRIMMED%"${TRIMMED##*[![:space:]]}"}"
 }
 
-# Removes a '#' comment unless the '#' sits inside a quoted string.
-strip_comment() {
+# trim TEXT: prints TEXT trimmed, for callers outside the parser.
+trim() {
+    trim_to "$1"
+    printf '%s' "$TRIMMED"
+}
+
+# strip_comment_to LINE -> STRIPPED: LINE without its '#' comment, unless
+# the '#' sits inside a quoted string.
+strip_comment_to() {
     local line="$1"
     local in_string=0
     local i char
+    STRIPPED="$line"
+    [[ "$line" == *"#"* ]] || return 0
+    if [[ "$line" != *'"'* ]]; then
+        STRIPPED="${line%%#*}"
+        return 0
+    fi
     for ((i = 0; i < ${#line}; i++)); do
         char="${line:$i:1}"
         if [[ "$char" == '"' ]]; then
             in_string=$((1 - in_string))
         elif [[ "$char" == "#" && "$in_string" -eq 0 ]]; then
-            printf '%s' "${line:0:$i}"
-            return
+            STRIPPED="${line:0:$i}"
+            return 0
         fi
     done
-    printf '%s' "$line"
+}
+
+strip_comment() {
+    strip_comment_to "$1"
+    printf '%s' "$STRIPPED"
 }
 
 # is_term TEXT: succeeds if TEXT is one whole term, and leaves it in TERM.
@@ -130,6 +150,19 @@ split_args() {
     local current=""
     local i char
     SPLIT_RESULT=()
+    # Fast path: with no quotes, brackets, or parentheses, every comma
+    # separates arguments, so cut at each one instead of reading every
+    # character.
+    if [[ "$text" != *[\"\[\(\]\)]* ]]; then
+        while [[ "$text" == *,* ]]; do
+            trim_to "${text%%,*}"
+            SPLIT_RESULT+=("$TRIMMED")
+            text="${text#*,}"
+        done
+        trim_to "$text"
+        SPLIT_RESULT+=("$TRIMMED")
+        return 0
+    fi
     for ((i = 0; i < ${#text}; i++)); do
         char="${text:$i:1}"
         if [[ "$char" == '"' ]]; then
@@ -142,19 +175,27 @@ split_args() {
             depth=$((depth - 1))
             current+="$char"
         elif [[ "$char" == "," && "$in_string" -eq 0 && "$depth" -eq 0 ]]; then
-            SPLIT_RESULT+=("$(trim "$current")")
+            trim_to "$current"
+            SPLIT_RESULT+=("$TRIMMED")
             current=""
         else
             current+="$char"
         fi
     done
     [[ "$in_string" -eq 0 ]] || return 1
-    SPLIT_RESULT+=("$(trim "$current")")
+    trim_to "$current"
+    SPLIT_RESULT+=("$TRIMMED")
+}
+
+# join_args_to TERM... -> JOINED: the terms joined with $AST_AS.
+join_args_to() {
+    local IFS="$AST_AS"
+    JOINED="$*"
 }
 
 join_args() {
-    local IFS="$AST_AS"
-    printf '%s' "$*"
+    join_args_to "$@"
+    printf '%s' "$JOINED"
 }
 
 # Parses "name(term, ...)" into CALL_NAME and CALL_ARGS (joined with $AST_AS).
@@ -162,14 +203,17 @@ parse_call() {
     local expression="$1"
     local arguments
     [[ "$expression" == *"("*")" ]] || return 1
-    CALL_NAME="$(trim "${expression%%(*}")"
+    trim_to "${expression%%(*}"
+    CALL_NAME="$TRIMMED"
     [[ "$CALL_NAME" =~ $NAME_PATTERN ]] || return 1
     arguments="${expression#*(}"
     arguments="${arguments%)}"
-    [[ -n "$(trim "$arguments")" ]] || return 1
+    trim_to "$arguments"
+    [[ -n "$TRIMMED" ]] || return 1
     split_args "$arguments" || return 1
     parse_terms "${SPLIT_RESULT[@]}" || return 1
-    CALL_ARGS="$(join_args "${SPLIT_RESULT[@]}")"
+    join_args_to "${SPLIT_RESULT[@]}"
+    CALL_ARGS="$JOINED"
 }
 
 
@@ -250,7 +294,7 @@ find_gives() {
 # parse_expect TEXT -> EXPECT_NODE ("kind FS name FS args FS answers"), or
 # fails with EXPECT_ERROR.
 parse_expect() {
-    local text="$1" kind="yes" call answers_text="" answer value
+    local text="$1" kind="yes" call answers_text="" answer
     local -a answers=() items values
     if [[ "$text" =~ ^NOT[[:space:]]+(.+)$ ]]; then
         kind="no"
@@ -261,9 +305,11 @@ parse_expect() {
         [[ "$kind" == "no" ]] && EXPECT_ERROR="expect NOT can't have 'gives'" && return 1
         kind="gives"
         call="${text:0:GIVES_POS}"
-        answers_text="$(trim "${text:GIVES_POS + 7}")"
+        trim_to "${text:GIVES_POS + 7}"
+        answers_text="$TRIMMED"
     fi
-    if ! parse_call "$(trim "$call")"; then
+    trim_to "$call"
+    if ! parse_call "$TRIMMED"; then
         EXPECT_ERROR="expected a predicate call after expect"
         return 1
     fi
@@ -339,7 +385,9 @@ parse_program() {
 
     while IFS= read -r line || [[ -n "$line" ]]; do
         ((line_number++))
-        content="$(trim "$(strip_comment "$line")")"
+        strip_comment_to "$line"
+        trim_to "$STRIPPED"
+        content="$TRIMMED"
         [[ -z "$content" ]] && continue
 
         if [[ "$in_rule" -eq 1 ]]; then
@@ -405,13 +453,15 @@ parse_program() {
         fi
 
         if [[ "$content" =~ ^rule[[:space:]]+(.+)$ ]]; then
-            rule_signature="$(trim "${BASH_REMATCH[1]}")"
+            trim_to "${BASH_REMATCH[1]}"
+            rule_signature="$TRIMMED"
             if [[ "$rule_signature" != *"):" || "$rule_signature" != *"("* ]]; then
                 parser_error "$line_number" "invalid rule declaration"
                 return 1
             fi
             rule_signature="${rule_signature%:}"
-            rule_name="$(trim "${rule_signature%%(*}")"
+            trim_to "${rule_signature%%(*}"
+            rule_name="$TRIMMED"
             if ! [[ "$rule_name" =~ $NAME_PATTERN ]]; then
                 parser_error "$line_number" "invalid rule declaration"
                 return 1
@@ -430,7 +480,8 @@ parse_program() {
                 fi
             done
             parse_terms "${params[@]}"
-            AST+=("RULE${AST_FS}${rule_name}${AST_FS}$(join_args "${SPLIT_RESULT[@]}")")
+            join_args_to "${SPLIT_RESULT[@]}"
+            AST+=("RULE${AST_FS}${rule_name}${AST_FS}${JOINED}")
             in_rule=1
             goal_count=0
             continue

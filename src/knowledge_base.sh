@@ -21,8 +21,9 @@ KB_QUERIES=()
 KB_ALTS=()
 
 kb_load() {
-    local node kind rest existing duplicate op goal
+    local node kind rest op goal fact
     local current_rule="" current_alt=""
+    local -a facts=()
     KB_FACTS=()
     KB_RULES=()
     KB_GOALS=()
@@ -34,11 +35,7 @@ kb_load() {
         rest="${node#*"$AST_FS"}"
         case "$kind" in
             FACT)
-                duplicate=0
-                for existing in "${KB_FACTS[@]}"; do
-                    [[ "$existing" == "$rest" ]] && duplicate=1 && break
-                done
-                [[ "$duplicate" -eq 0 ]] && KB_FACTS+=("$rest")
+                facts+=("$rest")
                 ;;
             RULE)
                 [[ -n "$current_alt" ]] && KB_ALTS+=("${current_rule}${AST_FS}${current_alt}")
@@ -62,6 +59,18 @@ kb_load() {
         esac
     done
     [[ -n "$current_alt" ]] && KB_ALTS+=("${current_rule}${AST_FS}${current_alt}")
+
+    # Drop repeated facts, keeping the first of each in order. Comparing each
+    # fact with every earlier one took seconds for a few thousand facts, and
+    # Bash 3.2 has no associative arrays, so one awk pass does it instead.
+    # (Facts never contain a newline: the parser reads one line at a time.)
+    if [[ "${#facts[@]}" -le 1 ]]; then
+        KB_FACTS=("${facts[@]}")
+    else
+        while IFS= read -r fact; do
+            KB_FACTS+=("$fact")
+        done < <(printf '%s\n' "${facts[@]}" | LC_ALL=C awk '!seen[$0]++')
+    fi
     kb_build_index
     return 0
 }

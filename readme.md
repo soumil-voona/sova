@@ -8,7 +8,7 @@ Rather than specifying every step a computer must execute, Sova allows programme
 
 Sova also aims to bridge the gap between declarative and conventional programming by teaching users how to translate logical solutions into pseudocode and other programming languages.
 
-> **Project status:** Early development. Core language and architecture are being designed.
+> **Project status:** Experimental, but the full pipeline works: parsing, inference with backtracking, explanations and traces, an interactive prompt, translations to pseudocode, Python, and JavaScript, and a set of exercises. The test suite has 464 tests.
 
 ## Vision
 
@@ -39,8 +39,7 @@ The goal is not just to produce answers, but to help programmers understand how 
 - Generate language-independent pseudocode
 - Translate Sova logic into conventional programming languages
 - Compare different programming paradigms
-- Interactive exercises and programming challenges
-- Explanations of underlying computer science concepts
+- Exercises with a checker that explains failing answers
 
 ## Example
 
@@ -103,6 +102,40 @@ FALSE, because:
 ```
 
 `--brief` prints just the answers.
+
+### Watching the search
+
+An explanation shows the finished proof. `--trace` shows how Sova found it, step by step: each goal as Sova starts on it, the fact or rule it tries, what that matches, the dead ends, and each time it goes back to try another option. With these facts and the `grandparent` rule:
+
+```text
+fact parent("Sam", "Jamie")
+fact parent("Sam", "Alex")
+fact parent("Alex", "Ben")
+```
+
+`./sova --trace` prints this before the usual answer and explanation:
+
+```text
+ask grandparent("Sam", who)
+
+Trace:
+  [1] grandparent("Sam", who)
+      Try rule grandparent(x, z) if parent(x, y) AND parent(y, z)
+      matches, with x = "Sam", z = who
+      [2] parent("Sam", y)
+          2 options: 2 facts match
+          Try fact parent("Sam", "Jamie"): matches, with y = "Jamie"
+      [3] parent("Jamie", z)
+          ✗ No matching fact exists.
+      ↩ Back to [2] parent("Sam", y): option 2 of 2
+          Try fact parent("Sam", "Alex"): matches, with y = "Alex"
+      [4] parent("Alex", z)
+          Try fact parent("Alex", "Ben"): matches, with z = "Ben"
+  ✓ Answer 1: who = "Ben"
+  Search finished: 1 answer, 4 goals tried.
+```
+
+Goals are numbered and indented by how deeply they sit inside rules. `NOT`, `collect`, and `count` show the search they run inside them. After an answer, the trace keeps going, because Sova goes back to look for more. A trace stops printing after 300 goals (set `SOVA_TRACE_LIMIT` for more), but the search itself finishes. At the prompt, type `trace` before a question.
 
 Sova can also show how a rule could be written in a conventional language:
 
@@ -193,10 +226,7 @@ You can also get the functional version on its own with `./sova --functional TAR
 Sova is designed around a modular interpreter architecture.
 
 ```text
-Source Code
-    |
-    v
-Lexer
+Source Code ------> Lexer (--tokens view only)
     |
     v
 Parser
@@ -221,16 +251,18 @@ Proof / Execution Trace
               |
               +----> Pseudocode Generator
               +----> Language Translator
-              +----> Interactive Tutor
+              +----> Exercise Checker
               +----> Paradigm Comparator
 ```
 
+The parser reads source text directly. The lexer is kept as a debugging and teaching view (`--tokens`) and is not part of the main pipeline.
+
 ## Technology
 
-- **Bash:** Entire language implementation
-- **Git:** Version control
+- **Bash:** Entire language implementation. It runs on Bash 3.2 (the version macOS ships), so it avoids associative arrays and other Bash 4 features.
 - **ShellCheck:** Shell script analysis
-- **Bash testing:** Automated interpreter tests
+- **Bash testing:** Automated interpreter tests. The translation tests also need `python3` and `node`; without them those suites print `[SKIP]`.
+- **GitHub Actions:** Runs the tests and ShellCheck on every push and pull request (`.github/workflows/ci.yml`)
 
 The project intentionally uses Bash to explore how much of a programming language implementation can be built using shell scripting.
 
@@ -256,6 +288,13 @@ The project intentionally uses Bash to explore how much of a programming languag
 - [x] Lists and `[head | tail]` patterns
 - [x] `collect` and `count`
 - [x] Text built-ins (`concat`, `text_length`, `chars`)
+- [x] Step-by-step search trace (`--trace`)
+- [x] Continuous integration (tests and ShellCheck on every push and pull request)
+- [x] Regression and stress tests (deep recursion, large knowledge bases, repeated answers, backtracking)
+- [x] Faster loading of large programs (3,000 facts load in about a second)
+- [ ] Decimals, input and output from rules, and importing other files
+
+See [docs/next-steps.md](docs/next-steps.md) for the full history and plans.
 
 ## Language Reference
 
@@ -360,13 +399,14 @@ TRUE:
 ?- quit
 ```
 
-`ask` and a trailing `?` are optional. Type `pseudocode ancestor("Ada", who)` to see a rule as pseudocode, `python ancestor("Ada", who)`, `functional …` or `javascript …` for a program (or `translate ancestor to python`), `compare ancestor` to see three paradigms side by side, `facts` to see everything Sova knows, and `help` for the commands.
+`ask` and a trailing `?` are optional. Put `trace` in front of a question to watch the search step by step. Type `pseudocode ancestor("Ada", who)` to see a rule as pseudocode, `python ancestor("Ada", who)`, `functional …` or `javascript …` for a program (or `translate ancestor to python`), `compare ancestor` to see three paradigms side by side, `facts` to see everything Sova knows, and `help` for the commands.
 
 ## Running and Testing
 
 ```bash
 ./sova examples/ancestor.sova          # answer the queries, with proofs
 ./sova --brief examples/ancestor.sova  # answers only
+./sova --trace examples/ancestor.sova  # show the search step by step first
 ./sova -i examples/family.sova         # interactive prompt (file optional)
 ./sova --pseudocode grandparent examples/family.sova   # rule as pseudocode
 ./sova --python grandparent examples/family.sova       # rule as a Python program
@@ -376,7 +416,8 @@ TRUE:
 ./sova --tokens examples/family.sova   # show lexer tokens
 ./sova --ast examples/family.sova      # show the parsed AST
 ./sova --kb examples/family.sova       # show the knowledge base
-tests/run_all.sh                       # run every test suite
+tests/run_all.sh                       # run every test suite (a few minutes)
+tests/run_all.sh test_rules test_trace # run only some suites
 shellcheck -x sova src/*.sh tests/*.sh # lint
 ```
 
@@ -384,12 +425,15 @@ shellcheck -x sova src/*.sh tests/*.sh # lint
 
 ```text
 sova/
-├── sova
+├── sova              # the command-line entry point
 ├── readme.md
-├── src/
-├── examples/
-├── tests/
-└── docs/
+├── src/              # lexer, parser, knowledge base, inference, explanations,
+│                     # trace, translators, exercise checker
+├── examples/         # example programs and their expected output
+├── exercises/        # the ten exercises (--start copies them to my-exercises/)
+├── tests/            # test suites, run by tests/run_all.sh
+├── docs/             # roadmap and design notes
+└── .github/workflows # continuous integration
 ```
 
 ## Design Principles
@@ -406,4 +450,4 @@ sova/
 
 ---
 
-Sova is an independent experimental project exploring programming
+Sova is an independent experimental project exploring programming languages, logic, and how people learn to reason about code.

@@ -120,6 +120,7 @@ check_one() {
     SOLUTIONS=()
     SOLUTION_PROOFS=()
     SOLUTION_SUBSTS=()
+    SOLUTION_SEEN=$'\n'
     ERRORS=()
     DEPTH_LIMIT_HIT=0
     FAIL_KEYS=()

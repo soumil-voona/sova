@@ -4,6 +4,8 @@
 # repl [FILE]: an interactive prompt. Loads FILE if given (without running its
 # asks), then reads one input at a time:
 #   parent(who, "Sam")      a question ("ask" and a trailing "?" are optional)
+#   trace parent(who, "Sam")
+#                           the same, showing the search step by step first
 #   fact parent("A", "B")   adds a fact
 #   rule r(x):              adds a rule; type its body lines, then an empty line
 #   pseudocode ancestor     shows ancestor written as pseudocode (also takes
@@ -38,6 +40,8 @@ repl_read() {
 repl_help() {
     cat <<'EOF'
   parent(who, "Sam")      ask a question ("ask" and "?" are optional)
+  trace parent(who, "Sam")
+                          the same, showing each step of the search first
   fact parent("A", "B")   add a fact
   rule r(x):              add a rule: type its body lines, then an empty line
   pseudocode ancestor     show a predicate as pseudocode; a call like
@@ -167,6 +171,15 @@ repl() {
                 ;;
             facts | kb)
                 kb_print
+                ;;
+            trace\ *)
+                line="$(trim "${line#trace}")"
+                line="${line%\?}"
+                [[ "$line" == ask\ * ]] || line="ask $line"
+                local saved_trace="$SOVA_TRACE"
+                SOVA_TRACE=1
+                repl_ask "$line"
+                SOVA_TRACE="$saved_trace"
                 ;;
             fact\ *)
                 repl_add "$line"

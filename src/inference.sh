@@ -45,7 +45,8 @@
 # A built-in that runs before its variables have values records an error, and
 # the answer becomes UNKNOWN instead of a misleading FALSE.
 #
-# Set SOVA_BRIEF=1 to print answers without proofs or failure notes.
+# Set SOVA_BRIEF=1 to print answers without proofs or failure notes, and
+# SOVA_TRACE=1 to print the search step by step first (src/trace.sh).
 
 SUBST_SEP=$'\x1c'
 CHAIN_SEP=$'\x03'
@@ -59,6 +60,10 @@ QUERY_VARS=()
 SOLUTIONS=()
 SOLUTION_PROOFS=()
 SOLUTION_SUBSTS=()
+# Every answer in SOLUTIONS, each followed by a newline (answers never
+# contain one), so a repeat is found with one pattern match instead of a
+# loop over every earlier answer. Reset, saved, and restored with SOLUTIONS.
+SOLUTION_SEEN=$'\n'
 
 # Failures, for explaining FALSE answers (see record_failure).
 FAIL_RECORDING=0
@@ -233,7 +238,7 @@ rule_label() {
 # Saves the query variables' values (and the proof) as one answer,
 # skipping answers already found.
 record_solution() {
-    local subst="$1" proof="$2" var answer="" existing
+    local subst="$1" proof="$2" var answer=""
     for var in "${QUERY_VARS[@]}"; do
         walk "$var" "$subst"
         [[ -n "$answer" ]] && answer+=", "
@@ -244,9 +249,8 @@ record_solution() {
             answer+="$var = $TERM_TEXT"
         fi
     done
-    for existing in "${SOLUTIONS[@]}"; do
-        [[ "$existing" == "$answer" ]] && return 0
-    done
+    [[ "$SOLUTION_SEEN" == *$'\n'"$answer"$'\n'* ]] && return 0
+    SOLUTION_SEEN+="$answer"$'\n'
     SOLUTIONS+=("$answer")
     SOLUTION_SUBSTS+=("$subst")
     SOLUTION_PROOFS+=("$proof")
@@ -255,13 +259,15 @@ record_solution() {
 # The search keeps pending states on an explicit stack instead of calling
 # itself, because Bash looks up every global variable through all the
 # function calls in progress: a recursive search gets slower the deeper it
-# goes. A state is four parallel entries (goals, substitution, depth, proof).
+# goes. A state is four parallel entries (goals, substitution, depth, proof),
+# plus a note for trace mode.
 # Successors are pushed in reverse, so they are explored in source order,
 # exactly as a recursive depth-first search would.
 ST_GOALS=()
 ST_SUBST=()
 ST_DEPTH=()
 ST_PROOF=()
+ST_NOTE=()
 ST_TOP=0
 
 push_state() {
@@ -269,6 +275,8 @@ push_state() {
     ST_SUBST[ST_TOP]="$2"
     ST_DEPTH[ST_TOP]="$3"
     ST_PROOF[ST_TOP]="$4"
+    # What the state is, for trace mode (see trace_note in src/trace.sh).
+    ST_NOTE[ST_TOP]="$5"
     ST_TOP=$((ST_TOP + 1))
 }
 
@@ -315,7 +323,8 @@ run_search() {
     local goals subst depth proof goal rest level name args clause_args entry
     local rule_index head body suffix step alt i id ref defined matched
     local first first_value fact_first level_field chain key term ground
-    local -a next_goals next_subst next_proof fact_ids alt_ids call_terms
+    local note shown before
+    local -a next_goals next_subst next_proof next_kind fact_ids alt_ids call_terms
 
     push_state "$1" "$2" "$3" "$4"
     while ((ST_TOP > base)); do
@@ -324,9 +333,13 @@ run_search() {
         subst="${ST_SUBST[ST_TOP]}"
         depth="${ST_DEPTH[ST_TOP]}"
         proof="${ST_PROOF[ST_TOP]}"
+        note="${ST_NOTE[ST_TOP]}"
+        [[ "$TRACE_ON" -eq 1 && -n "$note" ]] && trace_option "$note" "$subst"
 
         if [[ -z "$goals" ]]; then
+            before="${#SOLUTIONS[@]}"
             record_solution "$subst" "$proof"
+            [[ "$TRACE_ON" -eq 1 ]] && trace_answer "$before"
             continue
         fi
 
@@ -341,12 +354,17 @@ run_search() {
         name="${goal%%"$AST_FS"*}"
         args="${goal#*"$AST_FS"}"
         step="${level}${AST_FS}${name}${AST_FS}${args}${AST_FS}"
+        if [[ "$SOVA_TRACE" -eq 1 ]]; then
+            trace_goal "$name" "$args" "$subst" "$level"
+            shown="$TRACE_TEXT"
+        fi
 
         # The depth limit is on how deeply rule calls are nested, not on how
         # many steps a proof takes, so long computations (fib(15)) are fine
         # while a rule that keeps calling itself is stopped.
         if ((level >= SOVA_MAX_DEPTH)); then
             DEPTH_LIMIT_HIT=1
+            [[ "$TRACE_ON" -eq 1 ]] && trace_line "$level" "✗ Stopped: rules are nested $SOVA_MAX_DEPTH deep here (the depth limit)."
             continue
         fi
         proof="${proof:+${proof}${PROOF_SEP}}"
@@ -355,29 +373,48 @@ run_search() {
 
         if is_comparison "$name"; then
             if solve_comparison "$name" "$args" "$subst"; then
+                [[ "$TRACE_ON" -eq 1 ]] && trace_result "$level" "$COMPARE_SUBST" "$subst"
                 if [[ "$name" == "=" ]]; then
                     push_state "$rest" "$COMPARE_SUBST" $((depth + 1)) "${proof}${step}E${tail}"
                 else
                     push_state "$rest" "$COMPARE_SUBST" $((depth + 1)) "${proof}${step}C${tail}"
                 fi
-            elif [[ -n "$FAIL_REASON" ]]; then
-                record_failure "$proof" "$step" "$FAIL_REASON" "$subst" "$depth"
+            else
+                [[ "$TRACE_ON" -eq 1 ]] && trace_failed "$level" "$FAIL_REASON"
+                [[ -n "$FAIL_REASON" ]] && record_failure "$proof" "$step" "$FAIL_REASON" "$subst" "$depth"
             fi
             continue
         fi
         if [[ "$name" == "!"* ]]; then
             if solve_not "${name#!}" "$args" "$subst" "$level" "$depth"; then
+                [[ "$TRACE_ON" -eq 1 ]] && trace_line "$level" "✓ ${shown#NOT } can't be proved, so ${shown} is true."
                 push_state "$rest" "$subst" $((depth + 1)) "${proof}${step}N${tail}"
-            elif [[ -n "$FAIL_REASON" ]]; then
-                record_failure "$proof" "$step" "$FAIL_REASON" "$subst" "$depth"
+            else
+                if [[ "$TRACE_ON" -eq 1 ]]; then
+                    if [[ -n "$FAIL_REASON" ]]; then
+                        trace_line "$level" "✗ ${shown#NOT } can be proved, so ${shown} is false."
+                    else
+                        trace_failed "$level" ""
+                    fi
+                fi
+                [[ -n "$FAIL_REASON" ]] && record_failure "$proof" "$step" "$FAIL_REASON" "$subst" "$depth"
             fi
             continue
         fi
         if is_gather "$name"; then
             if solve_gather "$name" "$args" "$subst" "$level" "$depth" "$rest"; then
+                if [[ "$TRACE_ON" -eq 1 ]]; then
+                    trace_bindings "$GATHER_SUBST" "${#subst}"
+                    if [[ "$name" == count:* ]]; then
+                        trace_line "$level" "✓ Counted them: ${TRACE_BINDS:-the count matches}"
+                    else
+                        trace_line "$level" "✓ Collected them: ${TRACE_BINDS:-the list matches}"
+                    fi
+                fi
                 push_state "$rest" "$GATHER_SUBST" $((depth + 1)) "${proof}${step}G${tail}"
-            elif [[ -n "$FAIL_REASON" ]]; then
-                record_failure "$proof" "$step" "$FAIL_REASON" "$subst" "$depth"
+            else
+                [[ "$TRACE_ON" -eq 1 ]] && trace_failed "$level" "$FAIL_REASON"
+                [[ -n "$FAIL_REASON" ]] && record_failure "$proof" "$step" "$FAIL_REASON" "$subst" "$depth"
             fi
             continue
         fi
@@ -386,11 +423,24 @@ run_search() {
                 # shellcheck disable=SC2153 # set by solve_text_builtin
                 local -a builtin_substs=("${BUILTIN_SUBSTS[@]}")
                 if [[ "${#builtin_substs[@]}" -eq 0 ]]; then
+                    [[ "$TRACE_ON" -eq 1 ]] && trace_failed "$level" "It is false."
                     record_failure "$proof" "$step" "It is false." "$subst" "$depth"
                 fi
+                if [[ "$TRACE_ON" -eq 1 ]]; then
+                    local -a result_kinds=()
+                    for ((i = 0; i < ${#builtin_substs[@]}; i++)); do
+                        result_kinds+=(B)
+                    done
+                    trace_options "$level" 0 "${#builtin_substs[@]}" "${result_kinds[@]}"
+                fi
+                TRACE_NOTE=""
                 for ((i = ${#builtin_substs[@]} - 1; i >= 0; i--)); do
-                    push_state "$rest" "${builtin_substs[i]}" $((depth + 1)) "${proof}${step}B${tail}"
+                    [[ "$TRACE_ON" -eq 1 ]] &&
+                        trace_note "$TRACE_GOALS" $((i + 1)) "${#builtin_substs[@]}" B "$subst" "$level" "$shown"
+                    push_state "$rest" "${builtin_substs[i]}" $((depth + 1)) "${proof}${step}B${tail}" "$TRACE_NOTE"
                 done
+            elif [[ "$TRACE_ON" -eq 1 ]]; then
+                trace_failed "$level" ""
             fi
             continue
         fi
@@ -398,6 +448,7 @@ run_search() {
         next_goals=()
         next_subst=()
         next_proof=()
+        next_kind=()
         defined=0
         matched=0
 
@@ -434,6 +485,7 @@ run_search() {
                 next_goals+=("$rest")
                 next_subst+=("$UNIFY_SUBST")
                 next_proof+=("${proof}${step}F${id}${tail}")
+                next_kind+=("F${id}")
             fi
         done
 
@@ -442,6 +494,7 @@ run_search() {
         alt_ids=("${!ref}")
         [[ "${#alt_ids[@]}" -gt 0 ]] && defined=1
         local rule_count="${#alt_ids[@]}" fact_count="${#fact_ids[@]}" pruned=0
+        local facts_matched="${#next_goals[@]}"
 
         # Loop check: a fully known goal that is already being proved further
         # up this chain of rule calls can't gain anything from being proved
@@ -493,25 +546,41 @@ run_search() {
             next_goals+=("${body}${rest:+${GOAL_SEP}${rest}}")
             next_subst+=("$UNIFY_SUBST")
             next_proof+=("${proof}${step}A${alt}.${suffix}${tail}")
+            next_kind+=("A${alt}")
         done
 
-        # Remember why this branch failed, for explaining FALSE answers.
-        if [[ "$defined" -eq 0 ]]; then
-            record_failure "$proof" "$step" "Nothing defines $name." "$subst" "$depth"
-        elif [[ "$matched" -eq 0 ]]; then
-            if [[ "$rule_count" -eq 0 ]]; then
-                record_failure "$proof" "$step" "No matching fact exists." "$subst" "$depth"
-            elif [[ "$fact_count" -eq 0 ]]; then
-                record_failure "$proof" "$step" "No rule for $name matches it." "$subst" "$depth"
-            else
-                record_failure "$proof" "$step" "No matching fact or rule exists." "$subst" "$depth"
+        if [[ "$TRACE_ON" -eq 1 ]]; then
+            if [[ "$pruned" -eq 1 && "${#next_goals[@]}" -gt 0 ]]; then
+                trace_line "$level" "(Its rules are skipped: it is already being proved further up.)"
             fi
-        elif [[ "$pruned" -eq 1 && "${#next_goals[@]}" -eq 0 ]]; then
-            record_failure "$proof" "$step" "It would need itself to be proved first." "$subst" "$depth"
+            trace_options "$level" "$facts_matched" 0 "${next_kind[@]}"
         fi
 
+        # Remember why this branch failed, for explaining FALSE answers.
+        FAIL_REASON=""
+        if [[ "$defined" -eq 0 ]]; then
+            FAIL_REASON="Nothing defines $name."
+        elif [[ "$matched" -eq 0 ]]; then
+            if [[ "$rule_count" -eq 0 ]]; then
+                FAIL_REASON="No matching fact exists."
+            elif [[ "$fact_count" -eq 0 ]]; then
+                FAIL_REASON="No rule for $name matches it."
+            else
+                FAIL_REASON="No matching fact or rule exists."
+            fi
+        elif [[ "$pruned" -eq 1 && "${#next_goals[@]}" -eq 0 ]]; then
+            FAIL_REASON="It would need itself to be proved first."
+        fi
+        if [[ -n "$FAIL_REASON" ]]; then
+            [[ "$TRACE_ON" -eq 1 ]] && trace_failed "$level" "$FAIL_REASON"
+            record_failure "$proof" "$step" "$FAIL_REASON" "$subst" "$depth"
+        fi
+
+        TRACE_NOTE=""
         for ((i = ${#next_goals[@]} - 1; i >= 0; i--)); do
-            push_state "${next_goals[i]}" "${next_subst[i]}" $((depth + 1)) "${next_proof[i]}"
+            [[ "$TRACE_ON" -eq 1 ]] &&
+                trace_note "$TRACE_GOALS" $((i + 1)) "${#next_goals[@]}" "${next_kind[i]}" "$subst" "$level" "$shown"
+            push_state "${next_goals[i]}" "${next_subst[i]}" $((depth + 1)) "${next_proof[i]}" "$TRACE_NOTE"
         done
     done
 }
@@ -748,6 +817,7 @@ solve_gather() {
 
     local -a saved_vars=("${QUERY_VARS[@]}") saved_solutions=("${SOLUTIONS[@]}")
     local -a saved_proofs=("${SOLUTION_PROOFS[@]}") saved_substs=("${SOLUTION_SUBSTS[@]}")
+    local saved_seen="$SOLUTION_SEEN"
     local saved_depth_hit="$DEPTH_LIMIT_HIT" saved_brief="$SOVA_BRIEF"
     local saved_recording="$FAIL_RECORDING"
     FAIL_RECORDING=0
@@ -767,9 +837,15 @@ solve_gather() {
     SOLUTIONS=()
     SOLUTION_PROOFS=()
     SOLUTION_SUBSTS=()
+    SOLUTION_SEEN=$'\n'
     DEPTH_LIMIT_HIT=0
     SOVA_BRIEF=1
+    if [[ "$SOVA_TRACE" -eq 1 ]]; then
+        trace_text "$pred" "$inner_args" "$subst"
+        trace_inner_start "$level" "Find every answer to $TRACE_TEXT:"
+    fi
     run_search "$((level + 1))${AST_FS}${pred}${AST_FS}${inner_args}" "$subst" $((depth + 1)) ""
+    [[ "$SOVA_TRACE" -eq 1 ]] && trace_inner_end
     local -a found=("${SOLUTION_SUBSTS[@]}")
     local inner_depth_hit="$DEPTH_LIMIT_HIT"
 
@@ -777,6 +853,7 @@ solve_gather() {
     SOLUTIONS=("${saved_solutions[@]}")
     SOLUTION_PROOFS=("${saved_proofs[@]}")
     SOLUTION_SUBSTS=("${saved_substs[@]}")
+    SOLUTION_SEEN="$saved_seen"
     DEPTH_LIMIT_HIT="$saved_depth_hit"
     SOVA_BRIEF="$saved_brief"
     FAIL_RECORDING="$saved_recording"
@@ -881,6 +958,7 @@ solve_not() {
 
     local -a saved_vars=("${QUERY_VARS[@]}") saved_solutions=("${SOLUTIONS[@]}")
     local -a saved_proofs=("${SOLUTION_PROOFS[@]}") saved_substs=("${SOLUTION_SUBSTS[@]}")
+    local saved_seen="$SOLUTION_SEEN"
     local saved_depth_hit="$DEPTH_LIMIT_HIT" found inner_depth_hit
     local saved_recording="$FAIL_RECORDING"
     FAIL_RECORDING=0
@@ -889,10 +967,16 @@ solve_not() {
     SOLUTIONS=()
     SOLUTION_PROOFS=()
     SOLUTION_SUBSTS=()
+    SOLUTION_SEEN=$'\n'
     DEPTH_LIMIT_HIT=0
     # The inner search starts from the current bindings, so it sees the
     # values the arguments have (all known, checked above).
+    if [[ "$SOVA_TRACE" -eq 1 ]]; then
+        trace_text "$name" "$2" "$subst"
+        trace_inner_start "$level" "Check whether $TRACE_TEXT can be proved:"
+    fi
     run_search "$((level + 1))${AST_FS}${name}${AST_FS}${2}" "$subst" $((depth + 1)) ""
+    [[ "$SOVA_TRACE" -eq 1 ]] && trace_inner_end
     found="${#SOLUTIONS[@]}"
     inner_depth_hit="$DEPTH_LIMIT_HIT"
 
@@ -900,6 +984,7 @@ solve_not() {
     SOLUTIONS=("${saved_solutions[@]}")
     SOLUTION_PROOFS=("${saved_proofs[@]}")
     SOLUTION_SUBSTS=("${saved_substs[@]}")
+    SOLUTION_SEEN="$saved_seen"
     DEPTH_LIMIT_HIT="$saved_depth_hit"
     FAIL_RECORDING="$saved_recording"
 
@@ -944,6 +1029,7 @@ kb_ask() {
     SOLUTIONS=()
     SOLUTION_PROOFS=()
     SOLUTION_SUBSTS=()
+    SOLUTION_SEEN=$'\n'
     ERRORS=()
     DEPTH_LIMIT_HIT=0
     FAIL_KEYS=()
@@ -966,10 +1052,13 @@ kb_ask() {
         [[ "$known" -eq 0 ]] && QUERY_VARS+=("$term")
     done
 
+    [[ "$SOVA_TRACE" -eq 1 ]] && trace_start
     run_search "0${AST_FS}${name}${AST_FS}${args}" "$SUBST_SEP" 0 ""
     FAIL_RECORDING=0
+    [[ "$SOVA_TRACE" -eq 1 ]] && trace_finish
 
     if [[ "$SOVA_BRIEF" -eq 1 ]]; then
+        [[ "$SOVA_TRACE" -eq 1 ]] && echo
         kb_ask_brief
         return 0
     fi

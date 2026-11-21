@@ -1,6 +1,6 @@
 # Sova: Where It Stands and What's Next
 
-_Written 2026-11-18, after the Day 5 commit (`adfdef6`)._
+_Started 2026-11-18, after the Day 5 commit (`adfdef6`). Last updated 2026-11-21. Steps 1 to 6 below are the original plan, kept with their checkboxes as a record. Current work is under [What's next](#whats-next)._
 
 ## What Sova is
 
@@ -15,15 +15,17 @@ There are two goals:
 
 | Piece | File | Status |
 |---|---|---|
-| CLI (`./sova [--tokens\|--ast\|--kb] FILE`) | `sova` | Works |
-| Lexer | `src/lexer.sh` | Works for simple input, but nothing else uses it (see below) |
-| Parser → flat AST (`FACT` / `RULE` / `GOAL` / `ASK`) | `src/parser.sh` | Solid: handles comments, quoted strings, and good error messages |
-| Knowledge base (dedupes facts, stores rules) | `src/knowledge_base.sh` | Works |
-| Fact queries with variables | `match_fact` / `kb_ask` | Works: `ask parent(who, "Jamie")` → `who = "Sam"` |
-| **Rule evaluation / inference** | n/a | **Not started.** `ask grandparent(...)` prints `UNKNOWN` |
-| Tests | `tests/test_parser.sh` | 13/13 pass, but they cover the parser only |
-
-So the front half of the pipeline (source → AST → KB) is done. The next milestone is the part that makes Sova a logic language: **the inference engine**.
+| CLI (`./sova` with `--brief`, `--trace`, `-i`, translations, exercises, debug views) | `sova` | Works from any directory |
+| Lexer | `src/lexer.sh` | Quote-aware; used only by the `--tokens` view |
+| Parser → flat AST (`FACT` / `RULE` / `GOAL` / `ASK`, plus `expect` / `hint`) | `src/parser.sh` | Works |
+| Knowledge base (dedupes facts, indexes by predicate and first argument, arity warnings) | `src/knowledge_base.sh` | Works |
+| Inference: unification, renaming, depth-first search with backtracking, cycle skipping, depth limit | `src/inference.sh` | Works |
+| Built-ins: comparisons, arithmetic, lists, `NOT`, `collect`, `count`, text | `src/arith.sh`, `src/builtins.sh`, `src/terms.sh` | Works |
+| Explanations and trace | `src/explain.sh`, `src/trace.sh` | Works |
+| REPL | `src/repl.sh` | Works |
+| Pseudocode, Python, functional Python, JavaScript, paradigm comparison | `src/pseudocode.sh`, `src/compare.sh` | Works; translations are tested by running them |
+| Exercises and checker | `src/exercises.sh`, `src/check.sh`, `exercises/` | Ten exercises, each with a tested reference solution |
+| Tests | `tests/` | 21 suites, run by `tests/run_all.sh`, also in CI |
 
 ---
 
@@ -75,6 +77,7 @@ This is the feature that sets Sova apart, so build it right after inference work
 - [x] Have the solver record which fact or rule satisfied each goal, as a tree that travels alongside the bindings.
 - [x] Print it in a readable format, indented by depth for nested rules. (Replaced on 2026-11-20 by the explanation format: `TRUE, because:` with the rule used, its variable bindings, and the proof of each goal. See `src/explain.sh`.)
 - [x] **Explain failures** (now a goal-by-goal walk through each rule tried, with what matched and why the failing goal failed): for a FALSE query, report the first goal that had no match ("no fact `parent("Jamie", y)` exists"). It's simple to implement and very useful for learners.
+- [x] **Trace mode** (done 2026-11-21): `--trace`, or `trace` at the prompt, prints the search as it runs. It shows each numbered goal, the fact or rule tried and what it matched, dead ends, and `↩ Back to [n]` when Sova returns to another option. `NOT`, `collect`, and `count` show their inner searches. It stops printing after `SOVA_TRACE_LIMIT` (300) goals. See `src/trace.sh`.
 
 ### 5. Language features that will be missed quickly
 
@@ -109,13 +112,29 @@ Once proofs exist, these follow naturally from the rule AST:
 
 ---
 
-## Suggested near-term plan
+## What's next
 
-| Day | Goal |
-|---|---|
-| 6 | Cleanup (step 1) + KB/query tests (step 2) |
-| 7–8 | `unify` + renaming variables + recursive solver; `grandparent` returns TRUE |
-| 9 | Multiple clauses, `OR`, depth limit; `ancestor` example passes |
-| 10 | Proof trees + failure explanations |
+### 1. Trace mode
+Done 2026-11-21 (see step 4).
 
-**Definition of done for the next milestone:** `./sova examples/family.sova` prints exactly the `TRUE` + `Proof:` output shown in the README.
+### 2. Documentation cleanup
+Done 2026-11-21. The "What works today" table and README now match the code. The README's project status, architecture diagram (the lexer is only the `--tokens` view), feature list, project layout, and roadmap were brought up to date, and its last sentence, which was cut off, was finished.
+
+### 3. Continuous integration
+Done 2026-11-21. `.github/workflows/ci.yml` runs ShellCheck and the full test suite on pushes to `main` and on pull requests, on Ubuntu and on macOS (Bash 3.2). CI sets `SOVA_TEST_STRICT=1`, so a translation suite that skips because `python3` or `node` is missing fails the run.
+
+### 4. Regression and stress testing
+Done 2026-11-21. `tests/test_stress.sh` covers recursion close to the depth limit, a raised `SOVA_MAX_DEPTH`, a knowledge base with thousands of facts, answers that are reached by many paths and must appear once, and heavy backtracking (permutations and 4-queens).
+
+What it found: loading was the slow part for big programs, not the search. The parser started a subshell (`$(trim ...)`) for nearly every line, and `kb_load` compared each new fact with every earlier one to drop duplicates. About 1,500 facts took 10 seconds to load and 3,000 took 23 seconds. Fixed in step 5.
+
+### 5. Faster loading of large programs
+Done 2026-11-21.
+- `src/parser.sh` and `parse_side` in `src/arith.sh` use `trim_to`, `strip_comment_to`, and `join_args_to`, which set a variable (`TRIMMED`, `STRIPPED`, `JOINED`) instead of printing, so no subshell is started per line. `split_args` and `strip_comment_to` skip the character-by-character loop when the text has no quotes, brackets, or parentheses. The printing versions are still there for the other files.
+- `kb_load` drops duplicate facts with one `awk '!seen[$0]++'` pass, which keeps the first of each in order. Bash 3.2 has no associative arrays.
+- `record_solution` found repeated answers by looping over every earlier one, which made `count` and `collect` over thousands of answers slow. It now checks one string of every answer seen so far (`SOLUTION_SEEN`), which is reset, saved, and restored along with `SOLUTIONS`.
+
+Results: 3,000 facts load in 1.25 seconds instead of 23. A 3,000-fact program that counts every edge runs in 6.5 seconds instead of 60. The stress test now loads 3,200 fact lines.
+
+### 6. Language gaps
+Decimals, reading input and printing from rules, and importing other files.

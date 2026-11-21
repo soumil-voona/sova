@@ -293,7 +293,8 @@ expr_map() {
 # term (canonical) or an expression (tokens joined by $EXPR_SEP).
 parse_side() {
     local text
-    text="$(trim "$1")"
+    trim_to "$1"
+    text="$TRIMMED"
     [[ -n "$text" ]] || return 1
     if is_term "$text"; then
         SIDE="$TERM"
