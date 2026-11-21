@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: ShellCheck
-        run: shellcheck -x sova src/*.sh tests/*.sh
+        run: shellcheck -x install.sh sova src/*.sh tests/*.sh
 
   test:
     strategy:

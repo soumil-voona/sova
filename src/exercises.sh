@@ -65,14 +65,14 @@ list_exercises() {
         printf '  %s%2d%s  %-34s %s\n' "$C_CYAN" "$number" "$C_RESET" "$EXERCISE_TITLE" "$status"
     done
     echo
-    echo "Start one with:  ./sova --start N"
-    echo "Check your copy: ./sova --check ${EXERCISE_WORK_DIR#"$PWD"/}/FILE"
+    echo "Start one with:  ${SOVA_CMD:-./sova} --start N"
+    echo "Check your copy: ${SOVA_CMD:-./sova} --check ${EXERCISE_WORK_DIR#"$PWD"/}/FILE"
 }
 
 start_exercise() {
     local copy
     if ! exercise_file "$1"; then
-        echo "${E_RED}There is no exercise $1. See the list with: ./sova --exercises${E_RESET}" >&2
+        echo "${E_RED}There is no exercise $1. See the list with: ${SOVA_CMD:-./sova} --exercises${E_RESET}" >&2
         return 1
     fi
     mkdir -p "$EXERCISE_WORK_DIR" || return 1
@@ -85,5 +85,5 @@ start_exercise() {
         echo "${C_GREEN}Created${C_RESET} $shown"
     fi
     echo "Open it, follow the instructions at the top, then check your work with:"
-    echo "  ./sova --check $shown"
+    echo "  ${SOVA_CMD:-./sova} --check $shown"
 }

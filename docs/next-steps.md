@@ -25,7 +25,7 @@ There are two goals:
 | REPL | `src/repl.sh` | Works |
 | Pseudocode, Python, functional Python, JavaScript, paradigm comparison | `src/pseudocode.sh`, `src/compare.sh` | Works; translations are tested by running them |
 | Exercises and checker | `src/exercises.sh`, `src/check.sh`, `exercises/` | Ten exercises, each with a tested reference solution |
-| Tests | `tests/` | 21 suites, run by `tests/run_all.sh`, also in CI |
+| Tests | `tests/` | 23 suites, run by `tests/run_all.sh`, also in CI |
 
 ---
 

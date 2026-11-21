@@ -280,7 +280,7 @@ check_file() {
     if [[ "$CHECK_PASSED" -eq "$CHECK_TOTAL" ]]; then
         check_say "${C_BOLD}${C_GREEN}All $CHECK_TOTAL checks pass.${C_RESET}"
         if pred_has_rules "$first_pred"; then
-            check_say "See your rule written as code: ./sova --compare $first_pred $file"
+            check_say "See your rule written as code: ${SOVA_CMD:-./sova} --compare $first_pred $file"
         fi
         return 0
     fi

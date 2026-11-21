@@ -39,7 +39,26 @@
 #   --ast      show the parsed AST
 #   --kb       show the knowledge base
 
-SOVA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Find the real install folder, following symlinks, so sova works when it
+# is linked onto PATH (for example ~/.local/bin/sova -> ~/.local/share/sova/sova).
+sova_resolve_dir() {
+    local source="${BASH_SOURCE[0]}" dir
+    while [[ -L "$source" ]]; do
+        dir="$(cd -P "$(dirname "$source")" && pwd)"
+        source="$(readlink "$source")"
+        [[ "$source" == /* ]] || source="$dir/$source"
+    done
+    cd -P "$(dirname "$source")" && pwd
+}
+SOVA_DIR="$(sova_resolve_dir)"
+
+# How to name this command in hints: "sova" when it was found on PATH
+# (an installed copy), "./sova" when run from a clone.
+case ":$PATH:" in
+    *":$(dirname "$0"):"*) SOVA_CMD="sova" ;;
+    *)                     SOVA_CMD="./sova" ;;
+esac
+export SOVA_CMD
 
 # shellcheck source=src/color.sh
 source "$SOVA_DIR/src/color.sh"
