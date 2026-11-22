@@ -725,7 +725,7 @@ sova/
 - [x] Regression and stress tests (deep recursion, large knowledge bases, repeated answers, backtracking)
 - [x] Faster loading of large programs (3,000 facts load in about a second)
 - [x] Importing other files (`import "family.sova"`)
-- [ ] Decimals, and input and output from rules
+- [x] Decimals, and input and output from rules
 
 See [docs/next-steps.md](docs/next-steps.md) for the full history and plans.
 
