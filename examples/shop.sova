@@ -1,0 +1,31 @@
+# Decimals: prices, totals, and a discount. Sova works decimals out exactly,
+# so 0.1 + 0.2 is 0.3 (in most languages it is 0.30000000000000004).
+
+fact price("tea", 2.50)
+fact price("cake", 3.75)
+fact price("bread", 1.20)
+
+rule total(a, b, t):
+    price(a, x)
+    AND price(b, y)
+    AND t = x + y
+
+# 10% off anything over 3
+rule sale_price(item, p):
+    price(item, full)
+    AND full > 3
+    AND p = full * 0.9
+rule sale_price(item, p):
+    price(item, p)
+    AND p <= 3
+
+# / with a decimal divides exactly (to 10 places); with whole numbers it
+# rounds down, as before.
+rule split_bill(total, people, each):
+    each = total / people
+
+ask total("tea", "cake", t)
+ask sale_price(item, p)
+ask split_bill(10.0, 4, each)
+ask split_bill(10, 4, each)
+ask price(item, 2.5)

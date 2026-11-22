@@ -82,7 +82,7 @@ This is the feature that sets Sova apart, so build it right after inference work
 ### 5. Language features that will be missed quickly
 
 - [x] `NOT` (negation as failure)
-- [x] Numbers and comparisons (`age(x, a) AND a > 18`), integers only since Bash arithmetic has no decimals
+- [x] Numbers and comparisons (`age(x, a) AND a > 18`), integers at first; decimals were added on 2026-11-21 (see "What's next", step 6)
 - [x] Constants in rule heads (`rule likes("Sam", x):`)
 - [x] Arity checking: warn when `parent/2` and `parent/3` both appear
 - [x] An interactive REPL (`./sova -i file.sova` → `?- grandparent("Alex", who)`)
@@ -100,7 +100,7 @@ This is the feature that sets Sova apart, so build it right after inference work
 - [x] **`collect` and `count`:** they report an error when the gathered-over variable is needed later.
 - [x] **Text built-ins:** `concat` (works in every direction), `text_length`, and `chars`.
 - [x] **Imports** (done 2026-11-21): `import "family.sova"` adds another file's facts and rules in place. See step 6 of "What's next".
-- Still missing: decimals (Bash arithmetic has none), and reading input or printing from rules.
+- [x] **Decimals and input/output** (done 2026-11-21): see step 6 of "What's next".
 
 ### 6. Learning environment (later)
 
@@ -147,4 +147,19 @@ Decimals, reading input and printing from rules, and importing other files.
 - Errors in an imported file name it: `Syntax error in lib/inner.sova, line 3: …`.
 - Tested in `tests/test_import.sh`, and `examples/relatives.sova` imports `examples/family.sova`.
 
-Still open: decimals, and reading input and printing from rules.
+**Input and output: done 2026-11-21.** `print(a, ...)`, `read(line)`, and `read_number(n)` are built-ins in `src/builtins.sh`, next to the text built-ins.
+- The search runs once per question and explanations are built from the recorded proof, so a built-in with side effects runs exactly as often as the search reaches it. Printed lines appear between the `ask` line and the answer.
+- At the end of the input, `read` fails with the reason "There is no more input to read." (`BUILTIN_FAIL_REASON`), which the FALSE explanation shows.
+- `print` takes any number of values, so it is left out of the arity warnings.
+- Translations write `print(...)` / `console.log(...)`, and `read_line()` / `readLine()` helpers that return `None` / `null` at the end of the input. Functional style runs a print as `for _ in [print(x)]`.
+- `--compare` runs the question, so it reads input too, and says so when the input is a terminal.
+- Tested in `tests/test_io.sh` and with translation cases that pipe the same input into Sova and the generated programs. `examples/greeter.sova` has a `greeter.input`, which the golden test feeds it.
+
+**Decimals: done 2026-11-21.** Bash arithmetic has no decimals, so `src/arith.sh` does them itself: a decimal is a whole number plus a scale (2.75 is 275 hundredths), aligned before adding or comparing. That keeps them exact (0.1 + 0.2 is 0.3) and fast, with no `bc` or `awk` processes.
+- Whole-number arithmetic is unchanged, including `/` rounding down, so existing programs give the same answers. With a decimal, `/` divides exactly to 10 places (rounded half away from zero) and `%` uses the rounded-down quotient.
+- A decimal is written with at least one digit after the point (`5.0`), so `5` and `5.0` stay different values when matching, like Prolog. Comparisons and `=` between two known numbers go by value.
+- Up to 18 digits; more is an error ("too big for Sova") instead of the silent wraparound Bash does.
+- Translations: Python's `divide()` helper uses `//` for two ints and `round(a / b, 10)` otherwise. JavaScript can't tell 5.0 from 5, so `divide(a, b, true)` is used where a decimal is written in the expression. The README explains where floating point differs.
+- Tested in `tests/test_decimals.sh` and translation cases (`tests/translations/decimals.sova`). See `examples/shop.sova`.
+
+All three language gaps are now closed.

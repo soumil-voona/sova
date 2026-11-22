@@ -33,6 +33,8 @@ The goal is not just to produce answers, but to help programmers understand how 
 - Inference and backtracking
 - Knowledge base management
 - Importing facts and rules from other files
+- Exact decimal arithmetic
+- Printing and reading input from rules
 
 ### Explainable Execution
 - Trace the reasoning behind query results
@@ -320,7 +322,7 @@ import "family.sova"               # add another file's facts and rules
 
 | Values | |
 |---|---|
-| `"text"`, `42`, `-3` | constants (whole numbers only) |
+| `"text"`, `42`, `-3`, `2.5` | constants: text, whole numbers, and decimals |
 | `x`, `who` | variables: any name starting with a letter or `_` |
 | `[]`, `[1, 2, 3]` | lists |
 | `[head \| tail]`, `[a, b \| rest]` | a list's first item(s) and the rest |
@@ -331,23 +333,58 @@ import "family.sova"               # add another file's facts and rules
 | `AND`, `OR` | join goals; `OR` binds loosest |
 | `NOT p(x)` | true when `p(x)` can't be proved |
 | `a > 18`, `x + 1 <= y`, `x != "Bob"` | comparisons: `<` `>` `<=` `>=` `==` `!=` |
-| `m = n - 1` | calculation: `+ - * / %` and parentheses. Gives `m` a value, or checks it if `m` already has one. `/` and `%` round down. |
+| `m = n - 1` | calculation: `+ - * / %` and parentheses. Gives `m` a value, or checks it if `m` already has one. With whole numbers, `/` and `%` round down. See [Decimals](#decimals). |
 | `l = [h \| t]` | matching: takes a list apart, or builds one |
 | `collect(c, parent(p, c), kids)` | `kids` is the list of `c` for every answer |
 | `count(parent(p, c), n)` | `n` is the number of answers |
 | `concat(a, b, c)` | `c` is text `a` followed by `b`; works backwards too |
 | `text_length(t, n)` | `n` is the number of characters in `t` |
 | `chars(t, l)` | `l` is the list of `t`'s characters, or `t` is `l` joined |
+| `print(a, b, ...)` | writes the values on one line, separated by spaces; text appears without quotes |
+| `read(line)` | reads one line of input as text; false when there is no more input |
+| `read_number(n)` | reads one line of input as a number (`42` or `2.5`) |
 
 A rule with no goals is written as a fact with variables: `fact member(x, [x | rest])`.
 
 `import "FILE"` adds the facts and rules of another file at that point, as if they were written there. The file's own `ask`, `expect`, and `hint` lines are skipped, so a file can be a library and still run as a program of its own. A relative path is looked up from the folder of the file that has the `import`, not the folder you run `sova` from. Each file is read once, so two files may import each other. At the interactive prompt, `import` paths are relative to the file you loaded, or to the current folder if you didn't load one. See `examples/relatives.sova`.
 
+#### Decimals
+
+A number with a point, like `2.5` or `-0.75`, is a decimal. Sova works decimals out exactly, so `0.1 + 0.2` is `0.3`. A decimal needs a digit before the point (`0.5`, not `.5`).
+
+- When either value is a decimal, the result is a decimal, written with at least one digit after the point: `2.5 * 2` is `5.0`.
+- `/` with a decimal divides exactly, rounded to 10 decimal places: `1 / 4.0` is `0.25` and `1 / 3.0` is `0.3333333333`. With two whole numbers it still rounds down, as before: `7 / 2` is `3`. To divide whole numbers exactly, write one as a decimal: `7 / 2.0` is `3.5`.
+- `%` gives what is left after rounding the quotient down: `7.5 % 2` is `1.5`.
+- Comparisons go by value: `5 == 5.0`, `2.5 < 3`, and `10 = x * 2` (when `x` is `5.0`) are all true.
+- In facts and rule heads, `5` and `5.0` are different values, so `size(5.0)` doesn't match `fact size(5)`. Compare them with `==` instead.
+- A decimal can have up to 18 digits. A calculation that needs more is an error, and the answer is UNKNOWN.
+
+See `examples/shop.sova`.
+
+#### Input and output
+
+`print`, `read`, and `read_number` let a rule talk to the person running it:
+
+```text
+rule greet(name):
+    print("What's your name?")
+    AND read(name)
+    AND concat("Nice to meet you, ", name, message)
+    AND print(message)
+```
+
+- Input comes from the terminal as you type it, or from a file: `./sova examples/greeter.sova < examples/greeter.input`. At the interactive prompt, `read` takes the next line you type.
+- Printed lines appear right after the `ask` line, before the answer.
+- They run each time the search reaches them. A goal that is tried again, for another answer or after a later goal fails, prints or reads again. Put `print` after the goals that pick an answer if you want it printed once per answer.
+- `read` and `read_number` are false at the end of the input. `read_number` on a line that isn't a number is an error, and the answer is UNKNOWN.
+
+See `examples/greeter.sova`.
+
 The [examples](examples) folder shows each feature in use. See `math.sova` for factorial, Fibonacci, GCD, and Collatz, and `lists.sova` for length, append, reverse, sum, max, and insertion sort.
 
 ### How queries are answered
 
-- A quoted string (`"Alex"`) or a whole number (`17`, `-3`) is a constant; a bare name (`who`, `x`) is a variable. Numbers match by value, so `007` and `7` are the same.
+- A quoted string (`"Alex"`) or a number (`17`, `-3`, `2.5`) is a constant; a bare name (`who`, `x`) is a variable. Numbers are written in a standard form before matching, so `007` and `7` are the same, and so are `2.50` and `2.5`.
 - Sova searches depth-first and backtracks, like Prolog. For each goal it tries facts first, then rules in source order.
 - A predicate can have several rules with the same name; each is an alternative (e.g. a base case and a recursive case).
 - `OR` binds loosest: `a AND b OR c` means `(a AND b) OR c`.
@@ -532,6 +569,13 @@ $ node ancestor.js
 
 Both programs list every fact so they run on their own, and use a `seen` set to skip repeated answers quickly. JavaScript can't compare arrays with `===`, so when rows have several values the program includes two small helpers: `key(row)` turns a row into text, and `has(table, row)` checks whether a table contains a row. Names that would break the target language get a trailing `_`, such as keywords like `from` or `const`, or a variable named the same as a table.
 
+Some built-ins need a helper in the generated program, which is written out above the functions:
+
+- `read` and `read_number` become `read_line()` and `read_number()` (`readLine()` and `readNumber()` in JavaScript), which give `None` (`null`) at the end of the input.
+- In a program with decimals, `/` becomes `divide(a, b)`, which rounds down for whole numbers and divides exactly otherwise.
+
+Python and JavaScript use floating-point numbers rather than exact decimals, so `0.1 + 0.2` is `0.30000000000000004` there. JavaScript also has only one kind of number, so it prints `5.0` as `5`, and treats a value like `5.0` from a fact as a whole number when dividing.
+
 The tests run the generated Python and JavaScript programs and check that they print the same answers as Sova, in the same order.
 
 ### Comparing paradigms
@@ -620,6 +664,10 @@ SOVA_MAX_DEPTH=1000 ./sova examples/math.sova
 | `Missing file path` | Give a `.sova` file to run, such as `./sova examples/family.sova`. |
 | `Syntax error on line N: …` | Line N doesn't parse. Check for a missing comma between arguments, a missing `:` after a rule head, or unclosed quotes. |
 | `Syntax error in FILE, line N: …` | The same, in a file brought in by `import`. |
+| `'read_number(n)' read "…", which isn't a number` | The input line wasn't a number. Numbers look like `42`, `-3`, or `2.5`. |
+| The program waits and prints nothing | A rule is reading input. Type a line and press Enter, or give the input in a file with `< input.txt`. |
+| `FALSE` with `There is no more input to read.` | `read` reached the end of the input. Give the program more lines. |
+| A fact with `5` doesn't match `5.0` | In facts, a whole number and a decimal are different values. Use `==` to compare them by value. |
 | `can't import 'FILE': no such file` | The path is looked up from the folder of the file with the `import` line. Check the spelling, and use `../` to go up a folder. |
 | A warning that a predicate is used with different numbers of arguments | Something like `parent("A", "B")` in one place and `parent("A")` in another. Usually a typo. |
 | `UNKNOWN` from a comparison, `NOT`, or a calculation | A variable had no value yet when it was needed. Move the goal that gives it a value earlier in the rule body. |
@@ -725,7 +773,8 @@ sova/
 - [x] Regression and stress tests (deep recursion, large knowledge bases, repeated answers, backtracking)
 - [x] Faster loading of large programs (3,000 facts load in about a second)
 - [x] Importing other files (`import "family.sova"`)
-- [x] Decimals, and input and output from rules
+- [x] Decimals (`2.5`), worked out exactly
+- [x] Input and output from rules (`print`, `read`, `read_number`)
 
 See [docs/next-steps.md](docs/next-steps.md) for the full history and plans.
 

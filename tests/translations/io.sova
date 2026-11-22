@@ -1,0 +1,21 @@
+# Input and output cases for translation tests.
+fact pet("Mochi")
+fact pet("Rex")
+
+rule hello(name):
+    print("Hello,", name)
+
+rule greet(message):
+    read(name)
+    AND concat("Hi ", name, message)
+    AND print(message)
+
+rule add(total):
+    read_number(a)
+    AND read_number(b)
+    AND total = a + b
+    AND print("sum:", total)
+
+rule show_all(x):
+    pet(x)
+    AND print("found", x)

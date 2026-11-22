@@ -57,6 +57,11 @@ FUNCTIONAL_UNIQUE_USED=0
 # things: Python can't put lists in a set, so repeats are checked by
 # repr(); JavaScript can't compare arrays with ===, so it uses same().
 CODE_USES_LISTS=0
+# 1 when the generated code calls a helper that has to be written out:
+# divide() (set by src/arith.sh), and the input readers.
+CODE_USES_DIVIDE=0
+CODE_USES_READ=0
+CODE_USES_READ_NUMBER=0
 G_LEAD=""
 G_LOOPS=""
 G_LAST_PART=""
@@ -73,8 +78,8 @@ G_IN_FUNCTION=0
 # Set to 1 to print only the generated functions (used by --compare).
 TRANSLATE_FUNCTIONS_ONLY=0
 
-PYTHON_RESERVED=" False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield print set seen "
-JS_RESERVED=" break case catch class const continue debugger default delete do else enum export extends false finally for function if import in instanceof new null return super switch this throw true try typeof var void while with yield let static await implements package protected interface private public arguments eval undefined NaN Infinity console key has seen Set "
+PYTHON_RESERVED=" False None True and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield print set seen read_line read_number divide "
+JS_RESERVED=" break case catch class const continue debugger default delete do else enum export extends false finally for function if import in instanceof new null return super switch this throw true try typeof var void while with yield let static await implements package protected interface private public arguments eval undefined NaN Infinity console key has seen Set require readLine readNumber inputLines divide "
 
 pseudo_emit() {
     local pad
@@ -592,6 +597,10 @@ safe_goal_name() {
     elif [[ "$name" == "!"* ]]; then
         safe_pred "${name#!}"
         SAFE="!$SAFE"
+    elif is_text_builtin "$name" && ! pred_has_rules "$name" && ! pred_has_facts "$name"; then
+        # A built-in keeps its name (print is a Python builtin, but here it
+        # means Sova's print, which the translation writes as print()).
+        SAFE="$name"
     else
         safe_pred "$name"
     fi
@@ -1222,12 +1231,66 @@ pseudo_gather() {
 # A text built-in (src/builtins.sh) applies when the program doesn't
 # define its own facts or rules with that name.
 pseudo_builtin_applies() {
-    local name="$1" count="$2" expected=2
+    local name="$1" count="$2"
     is_text_builtin "$name" || return 1
     pred_has_rules "$name" && return 1
     pred_has_facts "$name" && return 1
-    [[ "$name" == "concat" ]] && expected=3
-    [[ "$count" -eq "$expected" ]]
+    builtin_arity_ok "$name" "$count"
+}
+
+# code_print VALUE...: writes the values on one line, separated by spaces.
+code_print() {
+    pseudo_join "$@"
+    if is_functional && [[ "$G_IN_FUNCTION" -eq 1 ]]; then
+        # A comprehension can't hold a statement, so the print runs as the
+        # one item of a loop: for _ in [print(x)].
+        G_LOOPS+=" for _ in [print($JOINED)]"
+        G_LAST_PART="for"
+    elif is_python; then
+        pseudo_emit "$G_LEVEL" "print($JOINED)"
+    elif is_js; then
+        pseudo_emit "$G_LEVEL" "console.log($JOINED);"
+    else
+        pseudo_emit "$G_LEVEL" "PRINT $JOINED"
+    fi
+}
+
+# code_read KIND TERM: reads one line of input (KIND line or number) and
+# matches it against TERM, going no further at the end of the input.
+code_read() {
+    local kind="$1" term="$2" call
+    CODE_USES_READ=1
+    pseudo_fresh
+    local value="$FRESH"
+    if is_python; then
+        if [[ "$kind" == "number" ]]; then
+            call="read_number()"
+            CODE_USES_READ_NUMBER=1
+        else
+            call="read_line()"
+        fi
+        code_assign "$value" "$call"
+        code_if "$value is not None"
+    elif is_js; then
+        if [[ "$kind" == "number" ]]; then
+            call="readNumber()"
+            CODE_USES_READ_NUMBER=1
+        else
+            call="readLine()"
+        fi
+        code_assign "$value" "$call"
+        code_if "$value !== null"
+    else
+        if [[ "$kind" == "number" ]]; then
+            code_assign "$value" "READ NUMBER"
+            CODE_USES_READ_NUMBER=1
+        else
+            code_assign "$value" "READ LINE"
+        fi
+        code_if "$value IS NOT END OF INPUT"
+    fi
+    pseudo_bind "$value"
+    pseudo_match "$term" "$value"
 }
 
 # code_text_op OP A [B] -> TEXT_CODE: one text operation in the target
@@ -1285,6 +1348,18 @@ pseudo_text_builtin() {
         fi
     done
     case "$name" in
+        print)
+            MISSING=()
+            pseudo_missing "${terms[@]}"
+            [[ "${#MISSING[@]}" -gt 0 ]] && pseudo_check_known "${MISSING[@]}"
+            code_print "${built[@]}"
+            ;;
+        read)
+            code_read line "${terms[0]}"
+            ;;
+        read_number)
+            code_read number "${terms[0]}"
+            ;;
         concat)
             local a="${built[0]}" b="${built[1]}" c="${built[2]}"
             if [[ "${known[0]}" -eq 1 && "${known[1]}" -eq 1 ]]; then
@@ -1685,7 +1760,13 @@ translate_to() {
     CODE_LANG="$1"
     JS_HELPERS_USED=0
     FUNCTIONAL_UNIQUE_USED=0
+    CODE_USES_DIVIDE=0
+    CODE_USES_READ=0
+    CODE_USES_READ_NUMBER=0
     G_IN_FUNCTION=0
+    code_uses_decimals
+    # shellcheck disable=SC2034 # read by src/arith.sh
+    EX_DECIMALS="$USES_DECIMALS"
 
     if [[ "$target" =~ $NAME_PATTERN ]]; then
         name="$target"
@@ -1729,6 +1810,10 @@ translate_to() {
     pseudo_data
     data="$PSEUDO_OUT"
 
+    PSEUDO_OUT=""
+    code_helpers
+    local helpers="$PSEUDO_OUT"
+
     format_goal "$name" "$args"
     if [[ "$TRANSLATE_FUNCTIONS_ONLY" -eq 1 ]]; then
         printf '%s' "$functions"
@@ -1756,6 +1841,7 @@ translate_to() {
             echo
             echo
         fi
+        printf '%s' "$helpers"
         printf '%s' "$functions"
         printf '%s' "$main"
     elif is_python; then
@@ -1769,6 +1855,7 @@ translate_to() {
             echo
             echo
         fi
+        printf '%s' "$helpers"
         printf '%s' "$functions"
         printf '%s' "$main"
     elif is_js; then
@@ -1788,6 +1875,7 @@ translate_to() {
             printf '%s' "$data"
             echo
         fi
+        printf '%s' "$helpers"
         printf '%s' "$functions"
         printf '%s' "$main"
     else
@@ -1800,6 +1888,7 @@ translate_to() {
             echo "# Lists are numbered from 0: l[0] is the first item and l[1:] is the"
             echo "# rest. [x] + rest makes a list with x in front of rest."
         fi
+        printf '%s' "$helpers"
         echo
         printf '%s' "$functions"
         printf '%s' "$main"
@@ -1810,6 +1899,102 @@ translate_to() {
     fi
 
     code_restore
+    return 0
+}
+
+# code_uses_decimals -> USES_DECIMALS: 1 if the program has a decimal
+# number anywhere (outside text) or reads numbers, which may be decimals.
+code_uses_decimals() {
+    local entry
+    USES_DECIMALS=0
+    for entry in "${KB_FACTS[@]}" "${KB_RULES[@]}" "${KB_GOALS[@]}" "${KB_QUERIES[@]}"; do
+        # Drop quoted text first, so "v1.2" doesn't count.
+        while [[ "$entry" == *\"*\"* ]]; do
+            entry="${entry%%\"*}${entry#*\"*\"}"
+        done
+        if [[ "$entry" =~ [0-9]\.[0-9] || "$entry" == *"read_number"* ]]; then
+            USES_DECIMALS=1
+            return 0
+        fi
+    done
+}
+
+# code_helpers -> PSEUDO_OUT: the small functions the generated code calls
+# (divide, and reading input), each written once.
+code_helpers() {
+    if is_python; then
+        if [[ "$CODE_USES_DIVIDE" -eq 1 ]]; then
+            pseudo_emit 0 "def divide(a, b):"
+            pseudo_emit 1 "\"\"\"Sova's /: whole numbers round down; decimals divide exactly"
+            pseudo_emit 1 "(to $DIVISION_PLACES places).\"\"\""
+            pseudo_emit 1 "if isinstance(a, int) and isinstance(b, int):"
+            pseudo_emit 2 "return a // b"
+            pseudo_emit 1 "return round(a / b, $DIVISION_PLACES)"
+            pseudo_emit 0 ""
+            pseudo_emit 0 ""
+        fi
+        if [[ "$CODE_USES_READ" -eq 1 ]]; then
+            pseudo_emit 0 "def read_line():"
+            pseudo_emit 1 "\"\"\"The next line of input, or None at the end of the input.\"\"\""
+            pseudo_emit 1 "try:"
+            pseudo_emit 2 "return input()"
+            pseudo_emit 1 "except EOFError:"
+            pseudo_emit 2 "return None"
+            pseudo_emit 0 ""
+            pseudo_emit 0 ""
+        fi
+        if [[ "$CODE_USES_READ_NUMBER" -eq 1 ]]; then
+            pseudo_emit 0 "def read_number():"
+            pseudo_emit 1 "\"\"\"The next line of input as a number, or None at the end.\"\"\""
+            pseudo_emit 1 "line = read_line()"
+            pseudo_emit 1 "if line is None:"
+            pseudo_emit 2 "return None"
+            pseudo_emit 1 "line = line.strip()"
+            pseudo_emit 1 "return float(line) if \".\" in line else int(line)"
+            pseudo_emit 0 ""
+            pseudo_emit 0 ""
+        fi
+    elif is_js; then
+        if [[ "$CODE_USES_DIVIDE" -eq 1 ]]; then
+            pseudo_emit 0 "// Sova's /: whole numbers round down; decimals divide exactly (to"
+            pseudo_emit 0 "// $DIVISION_PLACES places). JavaScript has one kind of number, so a value like 5.0"
+            pseudo_emit 0 "// counts as whole unless decimal is true (a decimal written in the rule)."
+            pseudo_emit 0 "function divide(a, b, decimal = false) {"
+            pseudo_emit 1 "if (!decimal && Number.isInteger(a) && Number.isInteger(b)) return Math.floor(a / b);"
+            pseudo_emit 1 "return Math.round((a / b) * 1e$DIVISION_PLACES) / 1e$DIVISION_PLACES;"
+            pseudo_emit 0 "}"
+            pseudo_emit 0 ""
+        fi
+        if [[ "$CODE_USES_READ" -eq 1 ]]; then
+            pseudo_emit 0 "// The next line of input, or null at the end of the input."
+            pseudo_emit 0 "let inputLines = null;"
+            pseudo_emit 0 "function readLine() {"
+            pseudo_emit 1 "if (inputLines === null) {"
+            pseudo_emit 2 "inputLines = require(\"fs\").readFileSync(0, \"utf8\").split(\"\\n\");"
+            pseudo_emit 2 "if (inputLines[inputLines.length - 1] === \"\") inputLines.pop();"
+            pseudo_emit 1 "}"
+            pseudo_emit 1 "return inputLines.length > 0 ? inputLines.shift() : null;"
+            pseudo_emit 0 "}"
+            pseudo_emit 0 ""
+        fi
+        if [[ "$CODE_USES_READ_NUMBER" -eq 1 ]]; then
+            pseudo_emit 0 "function readNumber() {"
+            pseudo_emit 1 "const line = readLine();"
+            pseudo_emit 1 "return line === null ? null : Number(line.trim());"
+            pseudo_emit 0 "}"
+            pseudo_emit 0 ""
+        fi
+    else
+        if [[ "$CODE_USES_DIVIDE" -eq 1 ]]; then
+            pseudo_emit 0 "# a / b rounds down when both are whole numbers; with a decimal it"
+            pseudo_emit 0 "# divides exactly (to $DIVISION_PLACES places)."
+        fi
+        if [[ "$CODE_USES_READ_NUMBER" -eq 1 ]]; then
+            pseudo_emit 0 "# READ LINE takes the next line of input; READ NUMBER reads it as a number."
+        elif [[ "$CODE_USES_READ" -eq 1 ]]; then
+            pseudo_emit 0 "# READ LINE takes the next line of input."
+        fi
+    fi
     return 0
 }
 

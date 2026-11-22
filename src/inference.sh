@@ -39,7 +39,8 @@
 #
 # Built-in goals:
 #   comparisons (a > 18, x != "Bob"): both sides need values. <, >, <=, >=
-#     compare integers; == and != compare numbers by value, anything else as text.
+#     compare numbers (whole or decimal); == and != compare numbers by value
+#     (5 == 5.0), anything else as text.
 #   NOT p(x): true when p(x) can't be proved ("negation as failure"). Its
 #     arguments need values first, since "NOT p(x)" with x unknown is ambiguous.
 # A built-in that runs before its variables have values records an error, and
@@ -423,8 +424,9 @@ run_search() {
                 # shellcheck disable=SC2153 # set by solve_text_builtin
                 local -a builtin_substs=("${BUILTIN_SUBSTS[@]}")
                 if [[ "${#builtin_substs[@]}" -eq 0 ]]; then
-                    [[ "$TRACE_ON" -eq 1 ]] && trace_failed "$level" "It is false."
-                    record_failure "$proof" "$step" "It is false." "$subst" "$depth"
+                    local builtin_reason="${BUILTIN_FAIL_REASON:-It is false.}"
+                    [[ "$TRACE_ON" -eq 1 ]] && trace_failed "$level" "$builtin_reason"
+                    record_failure "$proof" "$step" "$builtin_reason" "$subst" "$depth"
                 fi
                 if [[ "$TRACE_ON" -eq 1 ]]; then
                     local -a result_kinds=()
@@ -629,6 +631,9 @@ side_value() {
                 term_text "${detail#*"$AST_FS"}" "$2"
                 SIDE_ERROR="needs a number for '$SOURCE_NAME', but it is $TERM_TEXT"
                 ;;
+            too-big)
+                SIDE_ERROR="gives a number too big for Sova (decimals can have up to $DEC_MAX_DIGITS digits)"
+                ;;
             *)
                 SIDE_ERROR="divides by zero"
                 ;;
@@ -667,6 +672,12 @@ solve_comparison() {
     # = matches the two sides: an unknown gets a value, lists are matched
     # item by item ([h | t] = [1, 2, 3] gives h = 1 and t = [2, 3]).
     if [[ "$op" == "=" ]]; then
+        # Known numbers are checked by value, so 10 = x * 2 holds when x is
+        # 5.0 (5.0 * 2 is 10.0).
+        if [[ "$a" != "$b" && "$a$b" == *.* && "$a" =~ $NUMBER_PATTERN && "$b" =~ $NUMBER_PATTERN ]] &&
+            dec_cmp "$a" "$b" && [[ "$DEC_CMP" -eq 0 ]]; then
+            return 0
+        fi
         if unify_terms "$a" "$b" "$subst"; then
             COMPARE_SUBST="$UNIFY_SUBST"
             return 0
@@ -721,10 +732,19 @@ solve_comparison() {
     local numbers=0 result=1 x=0 y=0
     if [[ "$a" =~ $NUMBER_PATTERN && "$b" =~ $NUMBER_PATTERN ]]; then
         numbers=1
-        number_value "$a"
-        x="$NUMBER_VALUE"
-        number_value "$b"
-        y="$NUMBER_VALUE"
+        if [[ "$a$b" == *.* ]]; then
+            # A decimal: compare by sign of the difference.
+            if ! dec_cmp "$a" "$b"; then
+                add_unique ERRORS "'$shown' compares a number too big for Sova"
+                return 1
+            fi
+            x="$DEC_CMP"
+        else
+            number_value "$a"
+            x="$NUMBER_VALUE"
+            number_value "$b"
+            y="$NUMBER_VALUE"
+        fi
     fi
     case "$op" in
         "==" | "!=")

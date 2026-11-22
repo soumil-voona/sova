@@ -1,0 +1,18 @@
+# Input and output: print writes a line, read reads one, and read_number
+# reads one as a number. Run it and type the answers, or give them in a
+# file: ./sova examples/greeter.sova < examples/greeter.input
+
+rule greet(name):
+    print("What's your name?")
+    AND read(name)
+    AND concat("Nice to meet you, ", name, message)
+    AND print(message)
+
+rule tip(bill, amount):
+    print("How much was the bill?")
+    AND read_number(bill)
+    AND amount = bill * 0.15
+    AND print("A 15% tip is", amount)
+
+ask greet(name)
+ask tip(bill, amount)

@@ -73,7 +73,7 @@ pt_term() {
         token="${rest:1}"
         [[ "$token" == *'"'* ]] || return 1
         token="\"${token%%\"*}\""
-    elif [[ "$rest" =~ ^(-?[0-9]+) ]]; then
+    elif [[ "$rest" =~ ^(-?[0-9]+(\.[0-9]+)?) ]]; then
         token="${BASH_REMATCH[1]}"
         canonical_term "$token"
         PT_POS=$((PT_POS + ${#token}))

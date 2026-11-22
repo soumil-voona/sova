@@ -1,0 +1,41 @@
+ask greet(name)
+What's your name?
+Nice to meet you, Ada
+
+TRUE:
+  name = "Ada"
+
+  Because greet("Ada") is satisfied by:
+    greet(name) if print("What's your name?") AND read(name) AND concat("Nice to meet you, ", name, message) AND print(message)
+
+  Variable bindings:
+    name = "Ada"
+    message = "Nice to meet you, Ada"
+
+  Proof:
+    print("What's your name?") is true (built-in).
+    read("Ada") is true (built-in).
+    concat("Nice to meet you, ", "Ada", "Nice to meet you, Ada") is true (built-in).
+    print("Nice to meet you, Ada") is true (built-in).
+
+ask tip(bill, amount)
+How much was the bill?
+A 15% tip is 6.375
+
+TRUE:
+  bill = 42.5
+  amount = 6.375
+
+  Because tip(42.5, 6.375) is satisfied by:
+    tip(bill, amount) if print("How much was the bill?") AND read_number(bill) AND amount = bill * 0.15 AND print("A 15% tip is", amount)
+
+  Variable bindings:
+    bill = 42.5
+    amount = 6.375
+
+  Proof:
+    print("How much was the bill?") is true (built-in).
+    read_number(42.5) is true (built-in).
+    amount = 42.5 * 0.15 = 6.375 (calculated).
+    print("A 15% tip is", 6.375) is true (built-in).
+

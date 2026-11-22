@@ -3,7 +3,7 @@
 
 classify_word() {
     word="$1"
-    KEYWORDS=("fact" "rule" "ask" "AND" "OR" "NOT" "expect" "hint" "gives")
+    KEYWORDS=("fact" "rule" "ask" "AND" "OR" "NOT" "expect" "hint" "gives" "import")
     found=0
     for item in "${KEYWORDS[@]}"; do
         if [[ "$word" == "$item" ]]; then
@@ -13,7 +13,7 @@ classify_word() {
     done
     if [[ "$found" -eq 1 ]]; then
         echo "KEYWORD: $word"
-    elif [[ "$word" =~ ^-?[0-9]+$ ]]; then
+    elif [[ "$word" =~ ^-?[0-9]+(\.[0-9]+)?$ ]]; then
         echo "NUMBER: $word"
     else
         echo "IDENTIFIER: $word"

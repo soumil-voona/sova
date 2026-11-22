@@ -1,0 +1,110 @@
+ask total("tea", "cake", t)
+
+TRUE:
+  t = 6.25
+
+  Because total("tea", "cake", 6.25) is satisfied by:
+    total(a, b, t) if price(a, x) AND price(b, y) AND t = x + y
+
+  Variable bindings:
+    a = "tea"
+    x = 2.5
+    b = "cake"
+    y = 3.75
+    t = 6.25
+
+  Proof:
+    price("tea", 2.5) is a fact.
+    price("cake", 3.75) is a fact.
+    t = 2.5 + 3.75 = 6.25 (calculated).
+
+ask sale_price(item, p)
+
+TRUE, 3 answers:
+
+  Answer 1:
+    item = "cake"
+    p = 3.375
+
+    Because sale_price("cake", 3.375) is satisfied by:
+      sale_price(item, p) if price(item, full) AND full > 3 AND p = full * 0.9
+
+    Variable bindings:
+      item = "cake"
+      full = 3.75
+      p = 3.375
+
+    Proof:
+      price("cake", 3.75) is a fact.
+      3.75 > 3 is true.
+      p = 3.75 * 0.9 = 3.375 (calculated).
+
+  Answer 2:
+    item = "tea"
+    p = 2.5
+
+    Because sale_price("tea", 2.5) is satisfied by:
+      sale_price(item, p) if price(item, p) AND p <= 3
+
+    Variable bindings:
+      item = "tea"
+      p = 2.5
+
+    Proof:
+      price("tea", 2.5) is a fact.
+      2.5 <= 3 is true.
+
+  Answer 3:
+    item = "bread"
+    p = 1.2
+
+    Because sale_price("bread", 1.2) is satisfied by:
+      sale_price(item, p) if price(item, p) AND p <= 3
+
+    Variable bindings:
+      item = "bread"
+      p = 1.2
+
+    Proof:
+      price("bread", 1.2) is a fact.
+      1.2 <= 3 is true.
+
+ask split_bill(10.0, 4, each)
+
+TRUE:
+  each = 2.5
+
+  Because split_bill(10.0, 4, 2.5) is satisfied by:
+    split_bill(total, people, each) if each = total / people
+
+  Variable bindings:
+    each = 2.5
+    total = 10.0
+    people = 4
+
+  Proof:
+    each = 10.0 / 4 = 2.5 (calculated).
+
+ask split_bill(10, 4, each)
+
+TRUE:
+  each = 2
+
+  Because split_bill(10, 4, 2) is satisfied by:
+    split_bill(total, people, each) if each = total / people
+
+  Variable bindings:
+    each = 2
+    total = 10
+    people = 4
+
+  Proof:
+    each = 10 / 4 = 2 (calculated).
+
+ask price(item, 2.5)
+
+TRUE:
+  item = "tea"
+
+  Because price("tea", 2.5) is a fact.
+

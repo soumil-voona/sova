@@ -31,17 +31,19 @@ normalize() {
     sed -E "s/[\"']//g; s/\[ /[/g; s/ \]/]/g; s/,([^ ])/, \1/g"
 }
 
-# sova_answers FILE TARGET: Sova's answers as the programs print them:
-# one line per answer, values separated by spaces.
-# A query with no variables prints TRUE or FALSE.
+# sova_answers FILE TARGET [INPUT]: Sova's answers as the programs print
+# them: one line per answer, values separated by spaces. A query with no
+# variables prints TRUE or FALSE. Lines the program itself prints (print in
+# a rule) are kept as they are. INPUT is given to Sova's read built-ins.
 sova_answers() {
     local temp_file line has_vars=0
     temp_file=$(mktemp)
     grep -v '^[[:space:]]*ask ' "$1" > "$temp_file"
     printf 'ask %s\n' "$2" >> "$temp_file"
     [[ "$2" =~ \([^\"]*[a-z_] || "$2" =~ ,[[:space:]]*[a-z_] ]] && has_vars=1
-    SOVA_MAX_DEPTH=200 "$SOVA" --brief "$temp_file" 2>/dev/null | while IFS= read -r line; do
+    printf '%s' "$3" | SOVA_MAX_DEPTH=200 "$SOVA" --brief "$temp_file" 2>/dev/null | while IFS= read -r line; do
         case "$line" in
+            "ask "* | "") ;;
             "  TRUE")  [[ "$has_vars" -eq 1 ]] || echo "TRUE" ;;
             "  FALSE")
                 if [[ "$has_vars" -eq 1 ]]; then
@@ -56,20 +58,22 @@ sova_answers() {
                 line="${line#  }"
                 printf '%s\n' "$line" | perl -pe 's/, (?=[a-z_][a-z0-9_]* = )/\t/g; s/(^|\t)[a-z_][a-z0-9_]* = /$1/g; s/\t/ /g'
                 ;;
+            "  "*) ;;
+            *) printf '%s\n' "$line" ;;
         esac
     done | normalize
     rm -f "$temp_file"
 }
 
-# check_translation NAME FILE TARGET
+# check_translation NAME FILE TARGET [INPUT]
 check_translation() {
-    local name="$1" file="$2" target="$3" program expected actual
+    local name="$1" file="$2" target="$3" input="${4-}" program expected actual
     new_program
     program="$PROGRAM"
     "$SOVA" "$TRANSLATE_FLAG" "$target" "$file" > "$program" 2>&1
-    expected="$(sova_answers "$file" "$target")"
+    expected="$(sova_answers "$file" "$target" "$input")"
     # shellcheck disable=SC2086 # RUN_PROGRAM is a command with arguments
-    actual="$($RUN_PROGRAM "$program" 2>&1 | normalize)"
+    actual="$(printf '%s' "$input" | $RUN_PROGRAM "$program" 2>&1 | normalize)"
     [[ -z "$actual" ]] && actual="(no answers)"
     if [[ -n "$expected" && "$actual" == "$expected" ]]; then
         echo "[PASS] $name"
@@ -150,6 +154,16 @@ run_translation_tests() {
     check_translation "text_length in a comparison" "$CASES/text.sova" 'long_word("banana")'
     check_translation "concat taking off an ending" "$CASES/text.sova" 'suffix_of("walking", "ing", s)'
     check_translation "concat splitting every way" "$CASES/text.sova" 'splits("abc", a, b)'
+    check_translation "Decimal facts and a sum" "$CASES/decimals.sova" 'total("tea", "cake", t)'
+    check_translation "Comparing decimals" "$CASES/decimals.sova" 'cheap(item)'
+    check_translation "Decimal arithmetic" "$CASES/decimals.sova" 'calc(name, v)'
+    check_translation "Whole numbers still round down" "$CASES/decimals.sova" 'halves(7, h)'
+    check_translation "Decimal division" "$CASES/decimals.sova" 'share(10.5, 4, s)'
+    check_translation "print in a rule" "$CASES/io.sova" 'hello("Sam")'
+    check_translation "read a line" "$CASES/io.sova" 'greet(m)' $'Ada\n'
+    check_translation "read_number and print" "$CASES/io.sova" 'add(total)' $'3\n4.25\n'
+    check_translation "read at the end of the input" "$CASES/io.sova" 'greet(m)' ''
+    check_translation "print for every answer" "$CASES/io.sova" 'show_all(x)'
 
     # Every example rule should at least pass a syntax check.
     local file name program compiled=0 failed=""

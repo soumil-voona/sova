@@ -237,6 +237,8 @@ kb_check_arity() {
             continue
         fi
         name="${name#!}"
+        # print takes any number of values.
+        [[ "$name" == "print" ]] && continue
         arg_count "${entry#*"$AST_FS"}"
         uses+=("${name}/${ARG_COUNT}")
     done

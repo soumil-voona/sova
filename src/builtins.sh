@@ -3,9 +3,9 @@
 # Results are returned in globals that other files read:
 # shellcheck disable=SC2034
 #
-# Built-in predicates for text. They work like predicates defined by facts
-# and rules (and a program can define its own with the same name, which
-# then replaces the built-in):
+# Built-in predicates for text, input, and output. They work like
+# predicates defined by facts and rules (and a program can define its own
+# with the same name, which then replaces the built-in):
 #
 #   concat(a, b, c)    c is a followed by b. Works in any direction where
 #                      c, or both a and b, are known; with only c known it
@@ -13,13 +13,25 @@
 #   text_length(t, n)  n is the number of characters in t.
 #   chars(t, l)        l is the list of t's characters (["c", "a", "t"]),
 #                      or t is the text made by joining the list l.
+#   print(a, ...)      writes its values on one line, separated by spaces
+#                      (text without its quotes). Always true.
+#   read(line)         reads one line of input as text. False at the end of
+#                      the input.
+#   read_number(n)     reads one line of input as a number (42 or 2.5). False
+#                      at the end of the input; a line that isn't a number is
+#                      an error.
 #
-# Values must be text ("quoted"); anything else, or a value needed before
-# it is known, is an error and makes the answer UNKNOWN.
+# print, read, and read_number run each time the search reaches them, so a
+# goal tried again (for another answer, or after a later goal fails) prints
+# or reads again. Input is Sova's standard input: the terminal, a file given
+# with < input.txt, or at the interactive prompt, the next lines typed.
+#
+# Text built-ins need text ("quoted") values; anything else, or a value
+# needed before it is known, is an error and makes the answer UNKNOWN.
 
 is_text_builtin() {
     case "$1" in
-        concat | text_length | chars) return 0 ;;
+        concat | text_length | chars | print | read | read_number) return 0 ;;
     esac
     return 1
 }
@@ -35,12 +47,19 @@ builtin_applies() {
     ref="KBA_${name}[@]"
     ids=("${!ref}")
     [[ "${#ids[@]}" -gt 0 ]] && return 1
-    case "$name" in
-        concat) expected=3 ;;
-        *) expected=2 ;;
-    esac
     arg_count "$args"
-    [[ "$ARG_COUNT" -eq "$expected" ]]
+    builtin_arity_ok "$name" "$ARG_COUNT"
+}
+
+# builtin_arity_ok NAME COUNT: whether the built-in NAME takes COUNT
+# arguments (print takes any number from 1 up).
+builtin_arity_ok() {
+    case "$1" in
+        concat) [[ "$2" -eq 3 ]] ;;
+        print) [[ "$2" -ge 1 ]] ;;
+        read | read_number) [[ "$2" -eq 1 ]] ;;
+        *) [[ "$2" -eq 2 ]] ;;
+    esac
 }
 
 # text_value TERM SUBST -> TEXT_STATE: "known" (TEXT is the text without
@@ -75,7 +94,9 @@ builtin_try() {
 }
 
 # solve_text_builtin NAME ARGS SUBST -> BUILTIN_SUBSTS: one substitution
-# per way the built-in can be true (none if it is false). Fails on an error.
+# per way the built-in can be true (none if it is false, with the reason in
+# BUILTIN_FAIL_REASON if there is a better one than "It is false."). Fails
+# on an error.
 solve_text_builtin() {
     local name="$1" args="$2" subst="$3" shown i
     local -a terms
@@ -84,6 +105,7 @@ solve_text_builtin() {
     format_goal "$name" "$args"
     shown="$FORMATTED"
     BUILTIN_SUBSTS=()
+    BUILTIN_FAIL_REASON=""
 
     case "$name" in
         concat)
@@ -171,6 +193,49 @@ solve_text_builtin() {
                     return 1
                 fi
                 builtin_try "${terms[0]}" "\"$joined\"" "$subst"
+            fi
+            ;;
+        print)
+            local term line="" piece
+            for term in "${terms[@]}"; do
+                if ! term_is_ground "$term" "$subst"; then
+                    term_vars "$term"
+                    walk "${TERM_VARS[0]:-$term}" "$subst"
+                    source_name "$WALKED"
+                    builtin_error "$shown" "needs a value for '$SOURCE_NAME' (put the goal that sets it earlier)"
+                    return 1
+                fi
+                walk "$term" "$subst"
+                if [[ "$WALKED" == \"*\" ]]; then
+                    piece="${WALKED:1:${#WALKED}-2}"
+                else
+                    term_text "$WALKED" "$subst"
+                    piece="$TERM_TEXT"
+                fi
+                line+="${line:+ }$piece"
+            done
+            printf '%s\n' "$line"
+            BUILTIN_SUBSTS+=("$subst")
+            ;;
+        read | read_number)
+            local input
+            if ! IFS= read -r input; then
+                [[ -n "$input" ]] || {
+                    BUILTIN_FAIL_REASON="There is no more input to read."
+                    return 0
+                }
+            fi
+            input="${input%$'\r'}"
+            if [[ "$name" == "read" ]]; then
+                builtin_try "${terms[0]}" "\"$input\"" "$subst"
+            else
+                trim_to "$input"
+                if ! [[ "$TRIMMED" =~ $NUMBER_PATTERN ]]; then
+                    builtin_error "$shown" "read \"$input\", which isn't a number"
+                    return 1
+                fi
+                canonical_term "$TRIMMED"
+                builtin_try "${terms[0]}" "$CANONICAL" "$subst"
             fi
             ;;
     esac

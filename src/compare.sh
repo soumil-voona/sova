@@ -41,7 +41,11 @@ compare_collect() {
             fi
             if is_text_builtin "$goal_name" && ! pred_has_rules "$goal_name" &&
                 ! pred_has_facts "$goal_name"; then
-                COMPARE_USES_TEXT=1
+                case "$goal_name" in
+                    print) COMPARE_USES_PRINT=1 ;;
+                    read | read_number) COMPARE_USES_READ=1 ;;
+                    *) COMPARE_USES_TEXT=1 ;;
+                esac
                 continue
             fi
             if is_comparison "$goal_name"; then
@@ -114,6 +118,8 @@ compare_paradigms() {
     COMPARE_USES_LISTS=0
     COMPARE_USES_GATHER=0
     COMPARE_USES_TEXT=0
+    COMPARE_USES_PRINT=0
+    COMPARE_USES_READ=0
     COMPARE_USES_NOT=0
     COMPARE_USES_RECURSION=0
     COMPARE_USES_ALTERNATIVES=0
@@ -210,6 +216,12 @@ compare_paradigms() {
     if [[ "$COMPARE_USES_TEXT" -eq 1 ]]; then
         compare_row "concat / chars / text_length" "a + b, list(t), len(t)" "the same"
     fi
+    if [[ "$COMPARE_USES_PRINT" -eq 1 ]]; then
+        compare_row "print(a, b)" "print(a, b)" "for _ in [print(a, b)]"
+    fi
+    if [[ "$COMPARE_USES_READ" -eq 1 ]]; then
+        compare_row "read(x) / read_number(n)" "x = read_line(); if not None" "for x in [read_line()] if ..."
+    fi
     if [[ "$COMPARE_USES_NOT" -eq 1 ]]; then
         compare_row "NOT p(x)" "if x not in p / not is_p(x)" "the same, as an if clause"
     fi
@@ -232,6 +244,9 @@ compare_paradigms() {
     else
         parse_call "$target"
         args="$CALL_ARGS"
+    fi
+    if [[ "$COMPARE_USES_READ" -eq 1 && -t 0 ]]; then
+        echo "    (This reads input: type it now, or run with < input.txt.)"
     fi
     local saved_brief="$SOVA_BRIEF"
     SOVA_BRIEF=1

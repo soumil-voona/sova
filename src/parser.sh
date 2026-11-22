@@ -61,7 +61,8 @@ AST_AS=$'\x1e'
 AST=()
 
 NAME_PATTERN='^[a-zA-Z_][a-zA-Z0-9_]*$'
-NUMBER_PATTERN='^-?[0-9]+$'
+NUMBER_PATTERN='^-?[0-9]+(\.[0-9]+)?$'
+INTEGER_PATTERN='^-?[0-9]+$'
 
 # The parser runs these helpers several times per line, so they set a
 # global instead of printing: "$(...)" would start a subshell each time,
@@ -125,10 +126,29 @@ parse_terms() {
 }
 
 # canonical_term TERM -> CANONICAL: numbers in standard form (007 -> 7,
-# -0 -> 0) so equal numbers match; other terms unchanged.
+# -0 -> 0, 02.50 -> 2.5, 3.00 -> 3.0) so equal numbers match; other terms
+# unchanged. A decimal keeps one digit after the point, so 3.0 and 3 stay
+# different values (they are equal by ==, but don't match each other).
 canonical_term() {
-    local term="$1" sign=""
-    if [[ "$term" =~ $NUMBER_PATTERN ]]; then
+    local term="$1" sign="" whole fraction
+    if [[ "$term" =~ $DECIMAL_PATTERN ]]; then
+        if [[ "$term" == -* ]]; then
+            sign="-"
+            term="${term#-}"
+        fi
+        whole="${term%%.*}"
+        fraction="${term#*.}"
+        while [[ "$whole" == 0?* ]]; do
+            whole="${whole#0}"
+        done
+        while [[ "$fraction" == *0 && "${#fraction}" -gt 1 ]]; do
+            fraction="${fraction%0}"
+        done
+        [[ "$whole" == "0" && "$fraction" == "0" ]] && sign=""
+        CANONICAL="${sign}${whole}.${fraction}"
+        return 0
+    fi
+    if [[ "$term" =~ $INTEGER_PATTERN ]]; then
         if [[ "$term" == -* ]]; then
             sign="-"
             term="${term#-}"
