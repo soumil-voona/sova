@@ -23,6 +23,14 @@
 #   HINT <text>                    hint "Use two parent goals." (shown when
 #                                  a check fails)
 #
+# import "family.sova" reads another file in place: its facts and rules are
+# added as if they were written there, but its ask, expect, and hint lines
+# are checked and then skipped, so a file can be both a library and a program
+# of its own. Relative paths are resolved from the folder of the file that
+# imports them (from PARSE_BASE_DIR for the top file, when set: the REPL
+# parses a temporary copy). Each file is read once, so files may import each
+# other without looping. Errors in an imported file name that file.
+#
 # Terms are quoted strings ("Alex"), integers (17, -3), variables (x), or
 # lists ([], [1, 2], [head | tail]; see src/terms.sh).
 # Rule heads may contain any term: rule likes("Sam", food):
@@ -366,13 +374,74 @@ parse_expect() {
     EXPECT_NODE="${kind}${AST_FS}${name}${AST_FS}${args}${AST_FS}${answers_text}"
 }
 
+# The file being parsed, as shown in errors ("" for the top file), and the
+# real paths of every file read so far by this parse_program.
+PARSE_DISPLAY=""
+PARSE_SEEN=()
+PARSE_BASE_DIR=""
+
 parser_error() {
-    echo "${E_RED}Syntax error on line $1:${E_RESET} $2" >&2
+    if [[ -n "$PARSE_DISPLAY" ]]; then
+        echo "${E_RED}Syntax error in $PARSE_DISPLAY, line $1:${E_RESET} $2" >&2
+    else
+        echo "${E_RED}Syntax error on line $1:${E_RESET} $2" >&2
+    fi
     return 1
 }
 
+# real_path FILE: sets REAL_PATH to FILE's absolute path, with symlinks in its
+# folder resolved, so the same file is recognized however it's named.
+real_path() {
+    local dir
+    dir="$(cd -P "$(dirname "$1")" 2>/dev/null && pwd)" || return 1
+    REAL_PATH="$dir/$(basename "$1")"
+}
+
+# parse_program FILE: fills AST from FILE and everything it imports.
 parse_program() {
-    local source_file="$1"
+    AST=()
+    PARSE_SEEN=()
+    PARSE_DISPLAY=""
+    real_path "$1" && PARSE_SEEN+=("$REAL_PATH")
+    parse_file "$1" "${PARSE_BASE_DIR:-$(dirname "$1")}" ""
+}
+
+# parse_import LINE_NUMBER SPEC BASE_DIR: reads the file named by SPEC (an
+# import's quoted path) unless it was read already.
+parse_import() {
+    local line_number="$1" spec="$2" base_dir="$3"
+    local path display seen saved_display="$PARSE_DISPLAY"
+
+    if ! [[ "$spec" =~ ^\"([^\"]+)\"$ ]]; then
+        parser_error "$line_number" "write the file to import in quotes, like import \"family.sova\""
+        return 1
+    fi
+    path="${BASH_REMATCH[1]}"
+    display="$path"
+    if [[ "$path" != /* ]]; then
+        path="$base_dir/$path"
+        [[ -n "$PARSE_DISPLAY" && "$PARSE_DISPLAY" == */* ]] && display="${PARSE_DISPLAY%/*}/$display"
+    fi
+    if [[ ! -f "$path" ]]; then
+        parser_error "$line_number" "can't import '$display': no such file"
+        return 1
+    fi
+    real_path "$path"
+    for seen in "${PARSE_SEEN[@]}"; do
+        [[ "$seen" == "$REAL_PATH" ]] && return 0
+    done
+    PARSE_SEEN+=("$REAL_PATH")
+
+    PARSE_DISPLAY="$display"
+    parse_file "$path" "$(dirname "$path")" 1 || return 1
+    PARSE_DISPLAY="$saved_display"
+}
+
+# parse_file FILE BASE_DIR IMPORTED: appends FILE's nodes to AST. BASE_DIR is
+# where its imports are looked up; IMPORTED is non-empty for an imported file,
+# whose ask, expect, and hint lines are left out.
+parse_file() {
+    local source_file="$1" base_dir="$2" imported="$3"
     local line_number=0
     local line content op
     local in_rule=0
@@ -380,8 +449,6 @@ parse_program() {
     local goal_count=0
     local rule_signature rule_parameters parameter
     local params
-
-    AST=()
 
     while IFS= read -r line || [[ -n "$line" ]]; do
         ((line_number++))
@@ -391,7 +458,7 @@ parse_program() {
         [[ -z "$content" ]] && continue
 
         if [[ "$in_rule" -eq 1 ]]; then
-            if [[ "$content" =~ ^(fact|rule|ask|expect|hint)[[:space:]] ]]; then
+            if [[ "$content" =~ ^(fact|rule|ask|expect|hint|import)[[:space:]] ]]; then
                 if [[ "$goal_count" -eq 0 ]]; then
                     parser_error "$line_number" "rule '$rule_name' has no body"
                     return 1
@@ -420,6 +487,11 @@ parse_program() {
             fi
         fi
 
+        if [[ "$content" =~ ^import[[:space:]]+(.+)$ ]]; then
+            parse_import "$line_number" "${BASH_REMATCH[1]}" "$base_dir" || return 1
+            continue
+        fi
+
         if [[ "$content" =~ ^fact[[:space:]]+(.+)$ ]]; then
             if ! parse_call "${BASH_REMATCH[1]}"; then
                 parser_error "$line_number" "expected fact predicate and arguments"
@@ -430,7 +502,7 @@ parse_program() {
         fi
 
         if [[ "$content" =~ ^hint[[:space:]]+(\".*\")$ ]]; then
-            AST+=("HINT${AST_FS}${BASH_REMATCH[1]}")
+            [[ -z "$imported" ]] && AST+=("HINT${AST_FS}${BASH_REMATCH[1]}")
             continue
         fi
 
@@ -439,7 +511,7 @@ parse_program() {
                 parser_error "$line_number" "$EXPECT_ERROR"
                 return 1
             fi
-            AST+=("EXPECT${AST_FS}${EXPECT_NODE}")
+            [[ -z "$imported" ]] && AST+=("EXPECT${AST_FS}${EXPECT_NODE}")
             continue
         fi
 
@@ -448,7 +520,7 @@ parse_program() {
                 parser_error "$line_number" "expected query predicate and arguments"
                 return 1
             fi
-            AST+=("ASK${AST_FS}${CALL_NAME}${AST_FS}${CALL_ARGS}")
+            [[ -z "$imported" ]] && AST+=("ASK${AST_FS}${CALL_NAME}${AST_FS}${CALL_ARGS}")
             continue
         fi
 
@@ -487,7 +559,7 @@ parse_program() {
             continue
         fi
 
-        parser_error "$line_number" "expected fact, rule, or ask declaration"
+        parser_error "$line_number" "expected fact, rule, ask, or import declaration"
         return 1
     done < "$source_file"
 

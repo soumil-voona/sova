@@ -1,0 +1,12 @@
+# Importing another file: family.sova's facts and its grandparent rule are
+# added here. Its own ask lines are not run.
+import "family.sova"
+
+fact parent("Jamie", "Rowan")
+
+rule great_grandparent(x, w):
+    grandparent(x, y)
+    AND parent(y, w)
+
+ask great_grandparent("Alex", who)
+ask grandparent(who, "Rowan")

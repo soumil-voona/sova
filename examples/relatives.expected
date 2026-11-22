@@ -1,0 +1,45 @@
+ask great_grandparent("Alex", who)
+
+TRUE:
+  who = "Rowan"
+
+  Because great_grandparent("Alex", "Rowan") is satisfied by:
+    great_grandparent(x, w) if grandparent(x, y) AND parent(y, w)
+
+  Variable bindings:
+    x = "Alex"
+    y = "Jamie"
+    w = "Rowan"
+
+  Proof:
+    grandparent("Alex", "Jamie") is satisfied by:
+      grandparent(x, z) if parent(x, y) AND parent(y, z)
+
+    Variable bindings:
+      x = "Alex"
+      y = "Sam"
+      z = "Jamie"
+
+    Proof:
+      parent("Alex", "Sam") is a fact.
+      parent("Sam", "Jamie") is a fact.
+
+    parent("Jamie", "Rowan") is a fact.
+
+ask grandparent(who, "Rowan")
+
+TRUE:
+  who = "Sam"
+
+  Because grandparent("Sam", "Rowan") is satisfied by:
+    grandparent(x, z) if parent(x, y) AND parent(y, z)
+
+  Variable bindings:
+    x = "Sam"
+    y = "Jamie"
+    z = "Rowan"
+
+  Proof:
+    parent("Sam", "Jamie") is a fact.
+    parent("Jamie", "Rowan") is a fact.
+

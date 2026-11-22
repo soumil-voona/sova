@@ -32,6 +32,7 @@ The goal is not just to produce answers, but to help programmers understand how 
 - Query evaluation
 - Inference and backtracking
 - Knowledge base management
+- Importing facts and rules from other files
 
 ### Explainable Execution
 - Trace the reasoning behind query results
@@ -306,7 +307,7 @@ Sova exits with status `0` on success and `1` on errors such as a missing file o
 
 ### Language reference
 
-A program is a list of `fact`, `rule`, and `ask` lines. `#` starts a comment.
+A program is a list of `fact`, `rule`, `ask`, and `import` lines. `#` starts a comment.
 
 ```text
 fact parent("Ada", "Ben")          # something that is true
@@ -314,6 +315,7 @@ rule grandparent(x, z):            # true when every goal below is
     parent(x, y)
     AND parent(y, z)
 ask grandparent("Ada", who)        # a question; who is filled in
+import "family.sova"               # add another file's facts and rules
 ```
 
 | Values | |
@@ -338,6 +340,8 @@ ask grandparent("Ada", who)        # a question; who is filled in
 | `chars(t, l)` | `l` is the list of `t`'s characters, or `t` is `l` joined |
 
 A rule with no goals is written as a fact with variables: `fact member(x, [x | rest])`.
+
+`import "FILE"` adds the facts and rules of another file at that point, as if they were written there. The file's own `ask`, `expect`, and `hint` lines are skipped, so a file can be a library and still run as a program of its own. A relative path is looked up from the folder of the file that has the `import`, not the folder you run `sova` from. Each file is read once, so two files may import each other. At the interactive prompt, `import` paths are relative to the file you loaded, or to the current folder if you didn't load one. See `examples/relatives.sova`.
 
 The [examples](examples) folder shows each feature in use. See `math.sova` for factorial, Fibonacci, GCD, and Collatz, and `lists.sova` for length, append, reverse, sum, max, and insertion sort.
 
@@ -452,6 +456,7 @@ TRUE:
 | `parent(who, "Sam")` | Ask a question. `ask` in front and `?` at the end are optional. |
 | `trace parent(who, "Sam")` | Ask, showing each step of the search first. |
 | `fact parent("A", "B")` | Add a fact. |
+| `import "lib.sova"` | Add the facts and rules from another file. |
 | `rule r(x):` | Add a rule. Type its body lines, then an empty line to finish. |
 | `pseudocode ancestor` | Show a predicate as pseudocode. A call like `ancestor("Ada", who)` works too. |
 | `python ancestor` | The same as a Python program. Also `translate ancestor to python`. |
@@ -614,6 +619,8 @@ SOVA_MAX_DEPTH=1000 ./sova examples/math.sova
 | `command not found: sova` | The Sova folder isn't on your `PATH`. Use `./sova` from the folder, or see [Installation](#4-run-sova-from-anywhere-optional). |
 | `Missing file path` | Give a `.sova` file to run, such as `./sova examples/family.sova`. |
 | `Syntax error on line N: …` | Line N doesn't parse. Check for a missing comma between arguments, a missing `:` after a rule head, or unclosed quotes. |
+| `Syntax error in FILE, line N: …` | The same, in a file brought in by `import`. |
+| `can't import 'FILE': no such file` | The path is looked up from the folder of the file with the `import` line. Check the spelling, and use `../` to go up a folder. |
 | A warning that a predicate is used with different numbers of arguments | Something like `parent("A", "B")` in one place and `parent("A")` in another. Usually a typo. |
 | `UNKNOWN` from a comparison, `NOT`, or a calculation | A variable had no value yet when it was needed. Move the goal that gives it a value earlier in the rule body. |
 | `UNKNOWN` from a recursive rule | The rule nested more than 200 calls deep. Make sure it has a base case, or that the recursive call isn't the first goal. For deep but finite recursion, raise `SOVA_MAX_DEPTH`. |
@@ -717,7 +724,8 @@ sova/
 - [x] Continuous integration (tests and ShellCheck on every push and pull request)
 - [x] Regression and stress tests (deep recursion, large knowledge bases, repeated answers, backtracking)
 - [x] Faster loading of large programs (3,000 facts load in about a second)
-- [ ] Decimals, input and output from rules, and importing other files
+- [x] Importing other files (`import "family.sova"`)
+- [ ] Decimals, and input and output from rules
 
 See [docs/next-steps.md](docs/next-steps.md) for the full history and plans.
 

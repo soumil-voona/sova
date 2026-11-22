@@ -8,6 +8,8 @@
 #                           the same, showing the search step by step first
 #   fact parent("A", "B")   adds a fact
 #   rule r(x):              adds a rule; type its body lines, then an empty line
+#   import "lib.sova"       adds a file's facts and rules (paths are relative
+#                           to FILE's folder, or the current one without FILE)
 #   pseudocode ancestor     shows ancestor written as pseudocode (also takes
 #                           a call, e.g. pseudocode ancestor("Ada", who))
 #   python ancestor         the same as a Python program; also written as
@@ -47,6 +49,7 @@ repl_help() {
                           the same, showing each step of the search first
   fact parent("A", "B")   add a fact
   rule r(x):              add a rule: type its body lines, then an empty line
+  import "lib.sova"       add the facts and rules from another file
   pseudocode ancestor     show a predicate as pseudocode; a call like
                           ancestor("Ada", who) shapes it around known values
   python ancestor         the same as a runnable Python program
@@ -118,6 +121,13 @@ repl() {
     # shellcheck disable=SC2064 # expand the paths now
     trap "rm -f '$REPL_SESSION' '$REPL_SCRATCH'" EXIT
 
+    # The session is a temporary copy, so imports are looked up from FILE's
+    # folder (or the current one) instead of the copy's.
+    local base_dir="$PWD"
+    [[ -n "$file" ]] && base_dir="$(cd "$(dirname "$file")" && pwd)"
+    # shellcheck disable=SC2034 # read by parse_program in src/parser.sh
+    PARSE_BASE_DIR="$base_dir"
+
     AST=()
     if [[ -n "$file" ]]; then
         cp "$file" "$REPL_SESSION"
@@ -185,7 +195,7 @@ repl() {
                 repl_ask "$line"
                 SOVA_TRACE="$saved_trace"
                 ;;
-            fact\ *)
+            fact\ * | import\ *)
                 repl_add "$line"
                 ;;
             rule\ *)

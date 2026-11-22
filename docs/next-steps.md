@@ -99,7 +99,8 @@ This is the feature that sets Sova apart, so build it right after inference work
 - [x] **Lists:** `[]`, `[1, 2]`, and `[h | t]`, stored as unchangeable cells. Translated with list patterns (`isinstance` / `Array.isArray` checks, slices).
 - [x] **`collect` and `count`:** they report an error when the gathered-over variable is needed later.
 - [x] **Text built-ins:** `concat` (works in every direction), `text_length`, and `chars`.
-- Still missing: decimals (Bash arithmetic has none), reading input or printing from rules, and importing other files.
+- [x] **Imports** (done 2026-11-21): `import "family.sova"` adds another file's facts and rules in place. See step 6 of "What's next".
+- Still missing: decimals (Bash arithmetic has none), and reading input or printing from rules.
 
 ### 6. Learning environment (later)
 
@@ -138,3 +139,12 @@ Results: 3,000 facts load in 1.25 seconds instead of 23. A 3,000-fact program th
 
 ### 6. Language gaps
 Decimals, reading input and printing from rules, and importing other files.
+
+**Imports: done 2026-11-21.** `import "FILE"` in `parse_file` (`src/parser.sh`) parses the other file into the same AST, so the knowledge base, proofs, translations, and `--check` all work unchanged.
+- Relative paths are resolved from the importing file's folder. The REPL parses a temporary copy of the session, so it sets `PARSE_BASE_DIR` to the loaded file's folder (or the current folder).
+- Imported files contribute facts and rules only. Their `ask`, `expect`, and `hint` lines are still checked for syntax but left out, so a file works both as a library and as a program.
+- Each file is read once (tracked by real path in `PARSE_SEEN`), which also stops import cycles.
+- Errors in an imported file name it: `Syntax error in lib/inner.sova, line 3: …`.
+- Tested in `tests/test_import.sh`, and `examples/relatives.sova` imports `examples/family.sova`.
+
+Still open: decimals, and reading input and printing from rules.
